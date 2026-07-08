@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel de Ocorrências de Monitoramento</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+  :root {
+    --bg:#f0f4f9; --surface:#ffffff; --surface2:#f7f9fc; --border:#dbe5f1;
+    --blue:#1557d7; --blue2:#0f2d6e; --green:#0e9f6e; --red:#dc2626; --orange:#d97706;
+    --text:#162033; --muted:#64748b; --muted2:#94a3b8; --shadow:0 2px 8px rgba(15,45,110,.08);
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Plus Jakarta Sans', Arial, sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+  .header { background:linear-gradient(135deg,#07111f 0%,#0f2d6e 52%,#1557d7 100%); color:#fff; padding:30px 36px 28px; position:relative; overflow:hidden; }
+  .header:before { content:''; position:absolute; right:-120px; top:-120px; width:360px; height:360px; border-radius:50%; background:rgba(255,255,255,.07); }
+  .topline { font-size:12px; letter-spacing:2.4px; font-weight:800; text-transform:uppercase; opacity:.75; margin-bottom:8px; }
+  h1 { font-size:34px; line-height:1.05; font-weight:800; letter-spacing:-.8px; }
+  .subtitle { font-size:13px; opacity:.72; margin-top:8px; }
+  .header-badge { position:absolute; right:34px; top:28px; background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.2); border-radius:14px; padding:12px 18px; text-align:center; }
+  .header-badge small { display:block; opacity:.7; font-size:10px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; }
+  .header-badge strong { display:block; font-size:22px; margin-top:3px; }
+  .container { max-width:1720px; padding:24px 34px 34px; }
+  .toolbar { display:grid; grid-template-columns: 1.25fr 1.25fr repeat(2, 170px) repeat(5, auto); gap:10px; align-items:end; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; box-shadow:var(--shadow); margin-bottom:20px; }
+  .field label { display:block; font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; margin-bottom:6px; }
+  input[type=file], input[type=date] { width:100%; border:1px solid var(--border); border-radius:10px; padding:10px; font-family:inherit; background:#fff; color:var(--text); }
+  button { border:0; border-radius:10px; padding:11px 13px; font-family:inherit; font-weight:800; cursor:pointer; font-size:12px; white-space:nowrap; }
+  .btn-blue { background:var(--blue); color:#fff; } .btn-light { background:#e8f0ff; color:#174ea6; } .btn-red { background:#fee2e2; color:#991b1b; } .btn-green { background:#d1fae5; color:#065f46; }
+  .note { font-size:11px; color:var(--muted); margin-top:8px; grid-column:1/-1; line-height:1.5; }
+  .kpi-grid { display:grid; grid-template-columns: repeat(7, minmax(140px, 1fr)); gap:12px; margin-bottom:22px; }
+  .kpi { background:var(--surface); border:1px solid var(--border); border-top:4px solid var(--kpi, var(--blue)); border-radius:13px; padding:16px 15px; box-shadow:var(--shadow); }
+  .kpi-label { font-size:10px; color:var(--muted2); text-transform:uppercase; font-weight:800; letter-spacing:.7px; margin-bottom:8px; }
+  .kpi-value { font-size:25px; font-weight:800; letter-spacing:-.5px; }
+  .kpi-sub { font-size:11px; color:var(--muted); margin-top:5px; }
+  .section-title { font-size:12px; font-weight:800; color:var(--blue); letter-spacing:1.7px; text-transform:uppercase; display:flex; align-items:center; gap:10px; margin:18px 0 12px; }
+  .section-title:after { content:''; height:1px; background:var(--border); flex:1; }
+  .grid-main { display:grid; grid-template-columns: 38fr 32fr 30fr; gap:18px; margin-bottom:20px; }
+  .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:18px; margin-bottom:20px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; box-shadow:var(--shadow); }
+  .card-title { font-size:15px; font-weight:800; margin-bottom:4px; }
+  .card-sub { font-size:11px; color:var(--muted); margin-bottom:14px; }
+  .chart-wrap { height:252px; position:relative; }
+  #map { height:414px; border-radius:12px; border:1px solid var(--border); overflow:hidden; background:#e8eef7; }
+  .map-fallback { height:414px; border-radius:12px; border:1px solid var(--border); background:#e8eef7; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:13px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th { background:#07111f; color:#fff; padding:8px 9px; text-align:left; font-size:10px; letter-spacing:.7px; text-transform:uppercase; border-right:1px solid #1c2c46; }
+  td { border-bottom:1px solid var(--border); padding:8px 9px; vertical-align:middle; }
+  tr:nth-child(even) td { background:#f8fbff; }
+  .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .bold { font-weight:800; }
+  .badge { display:inline-flex; align-items:center; justify-content:center; border-radius:7px; padding:4px 8px; font-size:10px; font-weight:800; letter-spacing:.2px; white-space:nowrap; }
+  .b-red { background:#fee2e2; color:#991b1b; } .b-green { background:#d1fae5; color:#065f46; } .b-blue { background:#dbeafe; color:#1e40af; } .b-orange { background:#ffedd5; color:#9a3412; } .b-gray { background:#e5e7eb; color:#374151; }
+  .metric-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); }
+  .metric-row:last-child { border-bottom:0; }
+  .metric-name { color:var(--muted); font-size:13px; } .metric-val { font-weight:800; font-size:13px; }
+  .alert-box { border-radius:12px; border:1px solid #fecaca; background:#fff7f7; padding:13px 14px; margin-bottom:10px; display:flex; gap:12px; align-items:flex-start; }
+  .alert-num { min-width:28px; height:28px; border-radius:8px; background:#fee2e2; color:#991b1b; display:flex; align-items:center; justify-content:center; font-weight:800; }
+  .alert-title { font-size:13px; font-weight:800; margin-bottom:3px; }
+  .alert-desc { font-size:11.5px; color:var(--muted); line-height:1.5; }
+  .table-wrap { overflow:auto; max-height:520px; border:1px solid var(--border); border-radius:12px; }
+  .table-wrap table th { position:sticky; top:0; z-index:2; }
+  .footer { color:var(--muted); font-size:11px; display:flex; justify-content:space-between; margin-top:16px; }
+  .toast { position:fixed; right:22px; bottom:22px; background:#07111f; color:#fff; border-radius:12px; padding:12px 16px; box-shadow:0 8px 20px rgba(0,0,0,.25); display:none; z-index:9999; font-size:13px; }
+
+  .linkage-warning { border-radius:12px; border:1px solid #fecaca; background:#fff1f1; padding:14px 16px; margin-bottom:18px; display:flex; gap:12px; align-items:flex-start; }
+  .linkage-warning .lw-icon { min-width:32px; height:32px; border-radius:9px; background:#fee2e2; color:#991b1b; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:15px; }
+  .linkage-warning .lw-title { font-size:13.5px; font-weight:800; color:#7f1d1d; margin-bottom:3px; }
+  .linkage-warning .lw-desc { font-size:12px; color:#9a3412; line-height:1.5; }
+
+  .small-cell { font-size:11px; line-height:1.35; color:var(--text); }
+  .muted-cell { color:var(--muted); font-size:10.5px; line-height:1.35; }
+  .driver-chip { display:inline-flex; align-items:center; border-radius:999px; padding:4px 8px; font-size:10px; font-weight:800; background:#e8f0ff; color:#174ea6; margin:2px 3px 2px 0; white-space:nowrap; }
+  .driver-chip.warn { background:#fff7ed; color:#9a3412; }
+  .scale-summary { display:grid; grid-template-columns: repeat(4, minmax(130px,1fr)); gap:10px; margin-bottom:14px; }
+  .driver-ranking-grid { display:grid; grid-template-columns: 38fr 62fr; gap:18px; margin-bottom:20px; }
+  .link-type { display:block; margin-top:3px; font-size:9.5px; color:var(--muted2); font-weight:700; text-transform:uppercase; letter-spacing:.4px; }
+  .approx-tag { display:inline-block; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:#9a3412; background:#ffedd5; border-radius:4px; padding:1px 5px; margin-left:4px; cursor:help; }
+  .driver-name-cell { font-weight:800; color:var(--text); }
+  .vehicle-mini { color:var(--muted); font-size:10.5px; margin-top:2px; line-height:1.35; }
+  .driver-count { font-size:18px; font-weight:800; color:var(--blue); }
+  .driver-pct { font-size:10.5px; color:var(--muted); }
+
+  .scale-mini { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px; }
+  .scale-mini small { display:block; color:var(--muted); font-weight:800; letter-spacing:.7px; text-transform:uppercase; font-size:9px; margin-bottom:4px; }
+  .scale-mini strong { font-size:18px; }
+
+
+  .map-status { margin-top:10px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface2); color:var(--muted); font-size:11px; line-height:1.45; }
+  .map-status strong { color:var(--text); }
+  .mix-only-note { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:5px 9px; background:#dbeafe; color:#1e40af; font-size:10px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; margin-left:6px; }
+  @media (max-width:1500px) { .kpi-grid { grid-template-columns: repeat(4, minmax(140px, 1fr)); } }
+  @media (max-width:900px) { .kpi-grid { grid-template-columns: repeat(2, minmax(140px, 1fr)); } }
+  @media (max-width:480px) { .kpi-grid { grid-template-columns: 1fr; } }
+  @media (max-width:1100px) { .toolbar,.grid-main,.grid-2,.driver-ranking-grid { grid-template-columns:1fr; } .header-badge { position:static; display:inline-block; margin-top:16px; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="topline">Segurança Operacional · Base Fusion/Monitoramento <span class="mix-only-note">Somente veículos MIX</span></div>
+  <h1>Painel de Ocorrências de Monitoramento</h1>
+  <div class="subtitle">Importação diária · Somente frota MIX · Motorista vinculado pela escala · Mapa atualizado por latitude/longitude</div>
+  <div class="header-badge"><small>Período</small><strong id="headerDate">01/06/2026 – 30/06/2026</strong></div>
+  <div class="header-badge"><small>Versão do painel</small><strong id="panelVersion">v2.0 — 08/07/2026</strong></div>
+</div>
+<div class="container">
+  <div class="toolbar">
+    <div class="field"><label>Importar ocorrências do dia (.xls, .xlsx ou .csv)</label><input id="fileInput" type="file" accept=".xls,.xlsx,.csv"></div>
+    <div class="field"><label>Importar escala motorista x veículo (.xls, .xlsx ou .csv)</label><input id="scaleInput" type="file" accept=".xls,.xlsx,.csv"></div>
+    <div class="field"><label>Data inicial</label><input id="startDate" type="date"></div>
+    <div class="field"><label>Data final</label><input id="endDate" type="date"></div>
+    <button class="btn-blue" id="applyBtn">Aplicar período</button>
+    <button class="btn-light" id="todayBtn">Hoje/base</button>
+    <button class="btn-green" id="exportBtn">Exportar base</button>
+    <button class="btn-green" id="exportConsolidadoBtn">Exportar CSV p/ base consolidada</button>
+    <button class="btn-blue" id="sendSheetBtn">Enviar Ocorrências pro Google Sheets</button>
+    <button class="btn-blue" id="sendScaleSheetBtn">Enviar Escala pro Google Sheets</button>
+    <button class="btn-blue" id="exportResumoDiaBtn">Exportar Resumo do Dia</button>
+    <button class="btn-light" id="shareBtn">Baixar HTML compartilhável</button>
+    <button class="btn-red" id="clearBtn">Limpar importações</button>
+    <div class="note">A base enviada de 22/06/2026 já está embutida neste arquivo. Esta versão é compartilhável: ao enviar o HTML para outro computador, os gestores verão a mesma base embutida, sem depender do histórico salvo no navegador. Novas importações de ocorrências são somadas e deduplicadas pelo campo <strong>Número</strong>. Para compartilhar uma atualização feita depois, use <strong>Baixar HTML compartilhável</strong>. O painel considera somente veículos MIX; veículos terceiros/importados sem vínculo MIX ficam fora dos indicadores, mapa e ranking. A escala motorista x veículo foi incorporada ao HTML e pode ser atualizada por importação para permitir ranking mensal por motorista. O mapa utiliza <strong>Latitude</strong> e <strong>Longitude</strong>; se não houver internet, os marcadores aparecem em visualização simplificada.</div>
+  </div>
+
+  <div id="linkageWarning"></div>
+
+  <div class="kpi-grid" id="kpiGrid">
+    <div class="kpi" style="--kpi:#1557d7"><div class="kpi-label">Ocorrências</div><div class="kpi-value" id="kTotal">38</div><div class="kpi-sub" id="kPeriodo">01/06/2026 a 30/06/2026</div></div>
+    <div class="kpi" style="--kpi:#dc2626"><div class="kpi-label">Abertas</div><div class="kpi-value" id="kAbertas">8</div><div class="kpi-sub">pendentes de tratativa</div></div>
+    <div class="kpi" style="--kpi:#0e9f6e"><div class="kpi-label">Concluídas</div><div class="kpi-value" id="kConcluidas">30</div><div class="kpi-sub">com recuperação</div></div>
+    <div class="kpi" style="--kpi:#d97706"><div class="kpi-label">Veículos</div><div class="kpi-value" id="kVeiculos">3</div><div class="kpi-sub">com ocorrência</div></div>
+    <div class="kpi" style="--kpi:#7c3aed"><div class="kpi-label">Regra crítica</div><div class="kpi-value" id="kRegra">Velocidade 90 KM</div><div class="kpi-sub">principal regra violada</div></div>
+    <div class="kpi" style="--kpi:#e84c1e"><div class="kpi-label">Maior tempo aberto</div><div class="kpi-value" id="kMaxAberto">-</div><div class="kpi-sub">entre abertas</div></div>
+    <div class="kpi" style="--kpi:#0891b2"><div class="kpi-label">1ª interação média</div><div class="kpi-value" id="kInteracao">21 min</div><div class="kpi-sub">ocorrências tratadas</div></div>
+  </div>
+
+  <div class="section-title">Mapa e concentração das ocorrências</div>
+  <div class="grid-main">
+    <div class="card">
+      <div class="card-title">Mapa das ocorrências por coordenada</div>
+      <div class="card-sub">Pontos vermelhos indicam ocorrências abertas; verdes indicam concluídas. O mapa é atualizado a cada importação/filtro e considera somente veículos MIX.</div>
+      <div id="map" class="leaflet-container leaflet-touch leaflet-retina leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom" tabindex="0" style="position: relative;"><div class="leaflet-pane leaflet-map-pane" style="transform: translate3d(0px, 0px, 0px);"><div class="leaflet-pane leaflet-tile-pane"><div class="leaflet-layer " style="z-index: 1; opacity: 1;"><div class="leaflet-tile-container leaflet-zoom-animated" style="z-index: 18; transform: translate3d(0px, 0px, 0px) scale(1);"><img alt="" src="https://c.tile.openstreetmap.org/6/23/33.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(131px, 114px, 0px); opacity: 1;"><img alt="" src="https://b.tile.openstreetmap.org/6/23/32.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(131px, -142px, 0px); opacity: 1;"><img alt="" src="https://b.tile.openstreetmap.org/6/22/33.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(-125px, 114px, 0px); opacity: 1;"><img alt="" src="https://a.tile.openstreetmap.org/6/24/33.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(387px, 114px, 0px); opacity: 1;"><img alt="" src="https://a.tile.openstreetmap.org/6/23/34.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(131px, 370px, 0px); opacity: 1;"><img alt="" src="https://a.tile.openstreetmap.org/6/22/32.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(-125px, -142px, 0px); opacity: 1;"><img alt="" src="https://c.tile.openstreetmap.org/6/24/32.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(387px, -142px, 0px); opacity: 1;"><img alt="" src="https://c.tile.openstreetmap.org/6/22/34.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(-125px, 370px, 0px); opacity: 1;"><img alt="" src="https://b.tile.openstreetmap.org/6/24/34.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(387px, 370px, 0px); opacity: 1;"></div></div></div><div class="leaflet-pane leaflet-overlay-pane"><svg pointer-events="none" class="leaflet-zoom-animated" width="595" height="494" viewBox="-50 -41 595 494" style="transform: translate3d(-50px, -41px, 0px);"><g><path class="leaflet-interactive" stroke="#dc2626" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#dc2626" fill-opacity="0.85" fill-rule="evenodd" d="M227,184a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 "></path><path class="leaflet-interactive" stroke="#dc2626" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#dc2626" fill-opacity="0.85" fill-rule="evenodd" d="M226,181a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 "></path><path class="leaflet-interactive" stroke="#dc2626" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#dc2626" fill-opacity="0.85" fill-rule="evenodd" d="M224,177a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 "></path><path class="leaflet-interactive" stroke="#dc2626" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#dc2626" fill-opacity="0.85" fill-rule="evenodd" d="M221,174a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 "></path><path class="leaflet-interactive" stroke="#dc2626" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#dc2626" fill-opacity="0.85" fill-rule="evenodd" d="M208,108a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 "></path><path class="leaflet-interactive" stroke="#1557d7" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M234 184L231 177L228 174L215 108"></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M239,181a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M248,170a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M249,170a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M256,165a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M256,164a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M257,164a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M257,163a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M258,162a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M258,162a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M259,161a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M262,161a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M263,161a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M263,160a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M269,157a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M273,151a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M273,150a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M273,150a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M274,149a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M274,147a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M275,143a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M275,142a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M275,141a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M274,138a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M274,129a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M274,127a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M275,126a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#dc2626" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#dc2626" fill-opacity="0.85" fill-rule="evenodd" d="M270,114a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 "></path><path class="leaflet-interactive" stroke="#dc2626" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#dc2626" fill-opacity="0.85" fill-rule="evenodd" d="M269,112a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 "></path><path class="leaflet-interactive" stroke="#1557d7" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M244 181L253 170L261 165L264 161L267 161L274 157L279 149L280 126L276 112"></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M229,305a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M220,287a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M221,286a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#0e9f6e" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#0e9f6e" fill-opacity="0.85" fill-rule="evenodd" d="M221,274a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 "></path><path class="leaflet-interactive" stroke="#dc2626" stroke-opacity="1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#dc2626" fill-opacity="0.85" fill-rule="evenodd" d="M220,266a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 "></path><path class="leaflet-interactive" stroke="#1557d7" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M234 305L225 287L227 266"></path></g></svg></div><div class="leaflet-pane leaflet-shadow-pane"></div><div class="leaflet-pane leaflet-marker-pane"></div><div class="leaflet-pane leaflet-tooltip-pane"></div><div class="leaflet-pane leaflet-popup-pane"></div><div class="leaflet-proxy leaflet-zoom-animated" style="transform: translate3d(6005px, 8540px, 0px) scale(32);"></div></div><div class="leaflet-control-container"><div class="leaflet-top leaflet-left"><div class="leaflet-control-zoom leaflet-bar leaflet-control"><a class="leaflet-control-zoom-in" href="#" title="Zoom in" role="button" aria-label="Zoom in" aria-disabled="false"><span aria-hidden="true">+</span></a><a class="leaflet-control-zoom-out" href="#" title="Zoom out" role="button" aria-label="Zoom out" aria-disabled="false"><span aria-hidden="true">−</span></a></div></div><div class="leaflet-top leaflet-right"></div><div class="leaflet-bottom leaflet-left"></div><div class="leaflet-bottom leaflet-right"><div class="leaflet-control-attribution leaflet-control"><a href="https://leafletjs.com" title="A JavaScript library for interactive maps"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8" class="leaflet-attribution-flag"><path fill="#4C7BE1" d="M0 0h12v4H0z"></path><path fill="#FFD500" d="M0 4h12v3H0z"></path><path fill="#E0BC00" d="M0 7h12v1H0z"></path></svg> Leaflet</a> <span aria-hidden="true">|</span> © OpenStreetMap</div></div></div></div>
+      <div class="map-status" id="mapStatus"><strong>Mapa atualizado:</strong> 38 ponto(s) com coordenada no período filtrado, 3 veículo(s) MIX com ocorrência. Motoristas vinculados pela escala; terceiros excluídos.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Ocorrências por veículo</div>
+      <div class="card-sub">Ranking operacional de reincidência no período</div>
+      <div class="chart-wrap"><canvas id="chartVeiculos" style="box-sizing: border-box; display: block; height: 252px; width: 413.2px;" width="516" height="315"></canvas></div>
+      <div id="vehicleMetrics" style="margin-top:10px"><div class="metric-row"><span class="metric-name">1º JBP5D82 · Sem vínculo (28) · AÇAILANDI/IMPERATRI</span><span class="metric-val">28 ocorr.</span></div><div class="metric-row"><span class="metric-name">2º JBP5D86 · Sem vínculo (5) · PARAUAPEBAS</span><span class="metric-val">5 ocorr.</span></div><div class="metric-row"><span class="metric-name">3º RIN9D20 · Sem vínculo (5) · COLMEIA/GUARAI</span><span class="metric-val">5 ocorr.</span></div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Status de tratativa</div>
+      <div class="card-sub">Abertas x concluídas com recuperação</div>
+      <div class="chart-wrap"><canvas id="chartStatus" style="box-sizing: border-box; display: block; height: 252px; width: 385.1px;" width="481" height="315"></canvas></div>
+      <div id="statusMetrics" style="margin-top:10px"><div class="metric-row"><span class="metric-name">Abertas</span><span class="metric-val" style="color:#dc2626">8</span></div><div class="metric-row"><span class="metric-name">Concluídas</span><span class="metric-val" style="color:#0e9f6e">30</span></div><div class="metric-row"><span class="metric-name">Taxa tratada</span><span class="metric-val">78.9%</span></div></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Ocorrências por horário</div>
+      <div class="card-sub">Distribuição conforme Data Evento/Ocorrência</div>
+      <div class="chart-wrap"><canvas id="chartHoras" style="box-sizing: border-box; display: block; height: 252px; width: 675.8px;" width="844" height="315"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Alertas gerenciais</div>
+      <div class="card-sub">Prioridades sugeridas para atuação da liderança</div>
+      <div id="alerts"><div class="alert-box"><div class="alert-num">1</div><div><div class="alert-title">Maior reincidência: JBP5D82</div><div class="alert-desc">JBP5D82 concentra 28 ocorrências no período. Motorista(s) vinculado(s): Sem vínculo (28). Rota: AÇAILANDI/IMPERATRI. Priorizar orientação e acompanhamento do condutor em rota.</div></div></div><div class="alert-box"><div class="alert-num">2</div><div><div class="alert-title">Ocorrências abertas: 8</div><div class="alert-desc">JBP5D86 possui 5 ocorrência(s) aberta(s). Motorista(s): Sem vínculo (5). Acompanhar até encerramento e registrar 1ª interação para reduzir tempo aberto.</div></div></div><div class="alert-box"><div class="alert-num">3</div><div><div class="alert-title">Tempo de 1ª interação</div><div class="alert-desc">Média atual de 1ª interação nas ocorrências tratadas: 21 min. Manter monitoramento para evitar acúmulo de eventos sem tratativa.</div></div></div></div>
+    </div>
+  </div>
+
+
+  <div class="section-title">Ranking mensal por motorista</div>
+  <div class="driver-ranking-grid">
+    <div class="card">
+      <div class="card-title">Top motoristas por ocorrências</div>
+      <div class="card-sub">O motorista é identificado pela escala vinculada à placa e à data da ocorrência.</div>
+      <div class="chart-wrap"><canvas id="chartMotoristas" style="box-sizing: border-box; display: block; height: 252px; width: 504.6px;" width="630" height="315"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Detalhamento por motorista vinculado</div>
+      <div class="card-sub">Use o filtro de período para fechar o mês e identificar quem concentrou mais ocorrências.</div>
+      <div class="table-wrap" style="max-height:360px;">
+        <table id="driverRankingTable"><thead><tr><th>#</th><th>Motorista</th><th>Veículos vinculados</th><th class="num">Ocorrências</th><th class="num">Abertas</th><th class="num">Concluídas</th><th>Regra principal</th><th>Nível</th></tr></thead><tbody><tr><td class="bold">1º</td><td><div class="driver-name-cell">Sem vínculo</div><div class="driver-pct">100.0% das ocorrências do período</div></td><td><div class="vehicle-mini">JBP5D82 (28) / JBP5D86 (5) / RIN9D20 (5)</div></td><td class="num"><div class="driver-count">38</div></td><td class="num">8</td><td class="num">30</td><td>Velocidade 90 KM</td><td><span class="badge b-red">CRÍTICO</span></td></tr></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Resumo por veículo</div>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="table-wrap" style="max-height:360px;">
+      <table id="vehicleTable"><thead><tr><th>Veículo</th><th>Motorista vinculado</th><th>Ajudantes</th><th>Destino/Rota</th><th class="num">Ocorrências</th><th class="num">Abertas</th><th class="num">Concluídas</th><th>Regra principal</th><th>Último operador</th><th>Nível</th><th>Observação manual</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <div class="section-title">Base detalhada de ocorrências</div>
+  <div class="card">
+    <div class="card-sub">Detalhamento das ocorrências consideradas no período filtrado. Use a exportação para consolidar o histórico importado.</div>
+    <div class="table-wrap">
+      <table id="detailTable">
+        <thead><tr><th>Número</th><th>Data evento</th><th>Veículo</th><th>Motorista</th><th>Ajudantes</th><th>Destino/Rota</th><th>Status</th><th>Regra violada</th><th>Tempo aberto</th><th>1ª interação</th><th class="num">Latitude</th><th class="num">Longitude</th></tr></thead>
+        <tbody><tr><td class="bold">55044756</td><td>22/06/2026 13:54</td><td class="bold">JBP5D86</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">PARAUAPEBAS<div class="muted-cell">Carga: -</div></td><td><span class="badge b-red">ABERTO</span></td><td>Velocidade 90 KM</td><td>1h 49m</td><td>-</td><td class="num">-5.479300</td><td class="num">-48.770306</td></tr><tr><td class="bold">55044553</td><td>22/06/2026 13:38</td><td class="bold">RIN9D20</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">COLMEIA/GUARAI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-red">ABERTO</span></td><td>Velocidade 90 KM</td><td>2h 2m</td><td>-</td><td class="num">-8.924829</td><td class="num">-48.509636</td></tr><tr><td class="bold">55044261</td><td>22/06/2026 13:23</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-red">ABERTO</span></td><td>Velocidade 90 KM</td><td>2h 19m</td><td>-</td><td class="num">-5.570613</td><td class="num">-47.446007</td></tr><tr><td class="bold">55044176</td><td>22/06/2026 13:17</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-red">ABERTO</span></td><td>Velocidade 90 KM</td><td>2h 26m</td><td>-</td><td class="num">-5.626060</td><td class="num">-47.408840</td></tr><tr><td class="bold">55041109</td><td>22/06/2026 11:00</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 11:16</td><td class="num">-5.867520</td><td class="num">-47.359493</td></tr><tr><td class="bold">55041107</td><td>22/06/2026 10:56</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 11:16</td><td class="num">-5.908695</td><td class="num">-47.371819</td></tr><tr><td class="bold">55040961</td><td>22/06/2026 10:53</td><td class="bold">RIN9D20</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">COLMEIA/GUARAI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 11:16</td><td class="num">-9.101695</td><td class="num">-48.528210</td></tr><tr><td class="bold">55040810</td><td>22/06/2026 10:52</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 11:16</td><td class="num">-5.950623</td><td class="num">-47.383747</td></tr><tr><td class="bold">55040647</td><td>22/06/2026 10:37</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 10:50</td><td class="num">-6.139980</td><td class="num">-47.371841</td></tr><tr><td class="bold">55040500</td><td>22/06/2026 10:31</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 10:40</td><td class="num">-6.209296</td><td class="num">-47.356556</td></tr><tr><td class="bold">55040496</td><td>22/06/2026 10:30</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 10:40</td><td class="num">-6.222081</td><td class="num">-47.353741</td></tr><tr><td class="bold">55040495</td><td>22/06/2026 10:27</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 10:40</td><td class="num">-6.252883</td><td class="num">-47.353241</td></tr><tr><td class="bold">55040215</td><td>22/06/2026 10:20</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 10:31</td><td class="num">-6.339058</td><td class="num">-47.373013</td></tr><tr><td class="bold">55040097</td><td>22/06/2026 10:16</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 10:20</td><td class="num">-6.380110</td><td class="num">-47.382381</td></tr><tr><td class="bold">55040070</td><td>22/06/2026 10:15</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 10:20</td><td class="num">-6.393446</td><td class="num">-47.385391</td></tr><tr><td class="bold">55040058</td><td>22/06/2026 10:13</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 10:21</td><td class="num">-6.410828</td><td class="num">-47.392616</td></tr><tr><td class="bold">55040009</td><td>22/06/2026 10:13</td><td class="bold">RIN9D20</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">COLMEIA/GUARAI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 10:19</td><td class="num">-9.354663</td><td class="num">-48.544971</td></tr><tr><td class="bold">55040056</td><td>22/06/2026 10:12</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 10:20</td><td class="num">-6.423705</td><td class="num">-47.397240</td></tr><tr><td class="bold">55039995</td><td>22/06/2026 10:09</td><td class="bold">RIN9D20</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">COLMEIA/GUARAI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 10:19</td><td class="num">-9.393398</td><td class="num">-48.562977</td></tr><tr><td class="bold">55039280</td><td>22/06/2026 09:41</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 09:44</td><td class="num">-6.564708</td><td class="num">-47.480080</td></tr><tr><td class="bold">55039109</td><td>22/06/2026 09:27</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 09:38</td><td class="num">-6.630005</td><td class="num">-47.607841</td></tr><tr><td class="bold">55039108</td><td>22/06/2026 09:26</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 09:38</td><td class="num">-6.632248</td><td class="num">-47.621532</td></tr><tr><td class="bold">55039107</td><td>22/06/2026 09:24</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 09:39</td><td class="num">-6.636373</td><td class="num">-47.646130</td></tr><tr><td class="bold">55039104</td><td>22/06/2026 09:20</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 09:39</td><td class="num">-6.652265</td><td class="num">-47.700039</td></tr><tr><td class="bold">55039103</td><td>22/06/2026 09:18</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 09:39</td><td class="num">-6.660738</td><td class="num">-47.726173</td></tr><tr><td class="bold">55038837</td><td>22/06/2026 09:17</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 09:39</td><td class="num">-6.672798</td><td class="num">-47.733452</td></tr><tr><td class="bold">55038795</td><td>22/06/2026 09:16</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 09:39</td><td class="num">-6.684260</td><td class="num">-47.740383</td></tr><tr><td class="bold">55038745</td><td>22/06/2026 09:15</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 09:40</td><td class="num">-6.701955</td><td class="num">-47.751091</td></tr><tr><td class="bold">55038678</td><td>22/06/2026 09:13</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 09:40</td><td class="num">-6.715096</td><td class="num">-47.759064</td></tr><tr><td class="bold">55038619</td><td>22/06/2026 09:11</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 09:40</td><td class="num">-6.730688</td><td class="num">-47.771267</td></tr><tr><td class="bold">55038412</td><td>22/06/2026 09:00</td><td class="bold">RIN9D20</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">COLMEIA/GUARAI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 10:03</td><td class="num">-9.772986</td><td class="num">-48.355190</td></tr><tr><td class="bold">55038587</td><td>22/06/2026 08:56</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 09:45</td><td class="num">-6.835128</td><td class="num">-47.921043</td></tr><tr><td class="bold">55038189</td><td>22/06/2026 08:54</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 09:46</td><td class="num">-6.841098</td><td class="num">-47.950115</td></tr><tr><td class="bold">55038944</td><td>22/06/2026 08:51</td><td class="bold">JBP5D86</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">PARAUAPEBAS<div class="muted-cell">Carga: -</div></td><td><span class="badge b-red">ABERTO</span></td><td>Velocidade 90 KM</td><td>6h 19m</td><td>-</td><td class="num">-6.918303</td><td class="num">-48.485996</td></tr><tr><td class="bold">55038932</td><td>22/06/2026 08:42</td><td class="bold">JBP5D86</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">PARAUAPEBAS<div class="muted-cell">Carga: -</div></td><td><span class="badge b-red">ABERTO</span></td><td>Velocidade 90 KM</td><td>6h 19m</td><td>-</td><td class="num">-6.992532</td><td class="num">-48.418171</td></tr><tr><td class="bold">55037821</td><td>22/06/2026 08:33</td><td class="bold">JBP5D86</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">PARAUAPEBAS<div class="muted-cell">Carga: -</div></td><td><span class="badge b-red">ABERTO</span></td><td>Velocidade 90 KM</td><td>7h 10m</td><td>-</td><td class="num">-7.073447</td><td class="num">-48.385983</td></tr><tr><td class="bold">55037675</td><td>22/06/2026 08:26</td><td class="bold">JBP5D86</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">PARAUAPEBAS<div class="muted-cell">Carga: -</div></td><td><span class="badge b-red">ABERTO</span></td><td>Velocidade 90 KM</td><td>7h 17m</td><td>-</td><td class="num">-7.147585</td><td class="num">-48.367199</td></tr><tr><td class="bold">55038133</td><td>22/06/2026 08:26</td><td class="bold">JBP5D82</td><td><span class="driver-chip warn">Sem vínculo</span><span class="link-type">sem vínculo</span></td><td class="small-cell">-</td><td class="small-cell">AÇAILANDI/IMPERATRI<div class="muted-cell">Carga: -</div></td><td><span class="badge b-green">CONCLUÍDO</span></td><td>Velocidade 90 KM</td><td>-</td><td>22/06/2026 - 09:46</td><td class="num">-7.078103</td><td class="num">-48.138924</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="section-title">Histórico (Google Sheets)</div>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-sub">Lê direto da planilha compartilhada — cobre tudo que já foi enviado pelos botões "Enviar pro Google Sheets", de qualquer dia, por qualquer pessoa. Não inclui dados só importados localmente e ainda não enviados.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin:12px 0;">
+      <div class="field"><label>De</label><input id="histStart" type="date"></div>
+      <div class="field"><label>Até</label><input id="histEnd" type="date"></div>
+      <button class="btn-blue" id="histLoadBtn">Carregar histórico</button>
+      <span id="histStatus" style="font-size:12px;color:#8fa5b3;"></span>
+    </div>
+    <div class="kpi-grid" id="histKpiGrid" style="margin-bottom:16px;"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+      <input id="histFilterVeiculo" type="text" placeholder="Filtrar veículo..." style="padding:6px 10px;border:1px solid #d0d5dd;border-radius:6px;font-size:12px;">
+      <input id="histFilterMotorista" type="text" placeholder="Filtrar motorista..." style="padding:6px 10px;border:1px solid #d0d5dd;border-radius:6px;font-size:12px;">
+      <input id="histFilterTipo" type="text" placeholder="Filtrar tipo..." style="padding:6px 10px;border:1px solid #d0d5dd;border-radius:6px;font-size:12px;">
+    </div>
+    <div class="table-wrap" style="max-height:400px;">
+      <table id="histTable"><thead><tr><th>Data</th><th>Número</th><th>Veículo</th><th>Tipo</th><th>Motorista</th><th>Vínculo</th><th>Status</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-sub">Escala importada do relatório de motoristas e ajudantes. A vinculação é feita pela placa do veículo.</div>
+    <div class="scale-summary" id="scaleSummary"><div class="scale-mini"><small>Cargas escaladas</small><strong>23</strong></div><div class="scale-mini"><small>Veículos vinculados</small><strong>20</strong></div><div class="scale-mini"><small>Motoristas</small><strong>20</strong></div><div class="scale-mini"><small>Sem motorista</small><strong>0</strong></div></div>
+    <div class="table-wrap" style="max-height:300px;">
+      <table id="scaleTable"><thead><tr><th>Data</th><th>Veículo</th><th>Motorista</th><th>Ajudantes</th><th>Destino</th><th>Carga ERP</th><th class="num">Entregas</th><th class="num">Peso(KG)</th></tr></thead><tbody><tr><td>30/06/2026 06:50:32</td><td class="bold">BHM2D90</td><td><span class="driver-chip">HENRIQUE ANTONIO DE ALMEIDA</span></td><td class="small-cell">-</td><td class="small-cell">PARAISO DO TOCANTINS</td><td>1090151</td><td class="num">20</td><td class="num">2 644.215</td></tr><tr><td>30/06/2026 08:02:19</td><td class="bold">JBP5D76</td><td><span class="driver-chip">RAIMUNDO RODRIGUES DOS SANTOS FILHO</span></td><td class="small-cell">-</td><td class="small-cell">PALMAS SUL</td><td>1090158</td><td class="num">12</td><td class="num">3 534.459</td></tr><tr><td>30/06/2026 07:58:23</td><td class="bold">JBP5D78</td><td><span class="driver-chip">DIONE DE SOUZA PEREIRA OLIVEIRA</span></td><td class="small-cell">-</td><td class="small-cell">IMPERATRIZ</td><td>1090144</td><td class="num">31</td><td class="num">2 722.488</td></tr><tr><td>30/06/2026 07:46:41</td><td class="bold">MWA0531</td><td><span class="driver-chip">JORDANES INACIO DA SILVA</span></td><td class="small-cell">-</td><td class="small-cell">PORTO NAC/NATIVIDAD</td><td>1090156</td><td class="num">36</td><td class="num">5 603.647</td></tr><tr><td>30/06/2026 07:30:00</td><td class="bold">NJF6G82</td><td><span class="driver-chip">ROBERTO SILVA CARVALHO</span></td><td class="small-cell">-</td><td class="small-cell">MIRACEMA</td><td>1090152</td><td class="num">40</td><td class="num">2 858.718</td></tr><tr><td>30/06/2026 06:00:00</td><td class="bold">NVO8F94</td><td><span class="driver-chip">DANIEL MOURA DA CONCEIÇÃO</span></td><td class="small-cell">-</td><td class="small-cell">TRANSF SANTA FE</td><td>1090155</td><td class="num">6</td><td class="num">664.98</td></tr><tr><td>30/06/2026 07:30:00</td><td class="bold">NVO8F94</td><td><span class="driver-chip">WILSON GONÇALVES DA SILVA</span></td><td class="small-cell">-</td><td class="small-cell">FIORINO AUX 1</td><td>1090146</td><td class="num">12</td><td class="num">533.327</td></tr><tr><td>30/06/2026 14:00:00</td><td class="bold">OLH0000</td><td><span class="driver-chip">PEDIDOS AVULSO PALMAS</span></td><td class="small-cell">-</td><td class="small-cell">FIORINO A 14H</td><td>1090166</td><td class="num">7</td><td class="num">550.028</td></tr><tr><td>30/06/2026 07:30:00</td><td class="bold">OLM8D71</td><td><span class="driver-chip">KALEBY SANTANA SILVA</span></td><td class="small-cell">-</td><td class="small-cell">XAMBIOA</td><td>1090143</td><td class="num">35</td><td class="num">3 200.028</td></tr><tr><td>30/06/2026 07:30:00</td><td class="bold">OLN6D33</td><td><span class="driver-chip">EMANUEL RIBAMAR MARQUES DA ROCHA</span></td><td class="small-cell">-</td><td class="small-cell">PALMAS NORTE</td><td>1090157</td><td class="num">7</td><td class="num">3 254.555</td></tr><tr><td>30/06/2026 07:11:22</td><td class="bold">PAN5A78</td><td><span class="driver-chip">MADSON ALVES SANTANA</span></td><td class="small-cell">-</td><td class="small-cell">PEIXE/GURUPI</td><td>1090150</td><td class="num">49</td><td class="num">3 764.958</td></tr><tr><td>30/06/2026 07:30:00</td><td class="bold">PJZ0A29</td><td><span class="driver-chip">WESLEY SERPA DA SILVA</span></td><td class="small-cell">-</td><td class="small-cell">FIORINO C 07H</td><td>1090162</td><td class="num">8</td><td class="num">650.301</td></tr><tr><td>30/06/2026 07:30:00</td><td class="bold">PLL3F14</td><td><span class="driver-chip">HELIO MARCELINO DOS SANTOS</span></td><td class="small-cell">-</td><td class="small-cell">TAQUARALTO</td><td>1090159</td><td class="num">11</td><td class="num">2 937.645</td></tr><tr><td>30/06/2026 10:00:00</td><td class="bold">QKD3A46</td><td><span class="driver-chip">RODRIGO RIBEIRO BARBOSA DOS REIS</span></td><td class="small-cell">-</td><td class="small-cell">FIORINO B 10H</td><td>1090165</td><td class="num">12</td><td class="num">722.724</td></tr><tr><td>30/06/2026 07:30:00</td><td class="bold">QKD3A46</td><td><span class="driver-chip">RODRIGO RIBEIRO BARBOSA DOS REIS</span></td><td class="small-cell">-</td><td class="small-cell">FIORINO D 07H</td><td>1090163</td><td class="num">7</td><td class="num">527.729</td></tr><tr><td>30/06/2026 07:23:19</td><td class="bold">RIM5E10</td><td><span class="driver-chip">UESLEY XAVIER DA SILVA</span></td><td class="small-cell">-</td><td class="small-cell">LUZIMANGU/MIRACEMA/</td><td>1090153</td><td class="num">42</td><td class="num">4 212.235</td></tr><tr><td>30/06/2026 06:54:34</td><td class="bold">RIN4E79</td><td><span class="driver-chip">DANIEL BARBOSA DE SOUSA</span></td><td class="small-cell">-</td><td class="small-cell">ESTREITO</td><td>1090145</td><td class="num">44</td><td class="num">2 828.373</td></tr><tr><td>30/06/2026 08:23:55</td><td class="bold">RKO8D24</td><td><span class="driver-chip">LUEDISON SOUSA PEREIRA</span></td><td class="small-cell">-</td><td class="small-cell">ARAGUAINA</td><td>1090148</td><td class="num">11</td><td class="num">3 602.579</td></tr><tr><td>30/06/2026 07:30:00</td><td class="bold">ROA4F62</td><td><span class="driver-chip">GABRIEL DIAS MOURA DA SILVA</span></td><td class="small-cell">-</td><td class="small-cell">AUGUSTINO/ESPERANTI</td><td>1090142</td><td class="num">73</td><td class="num">4 451.108</td></tr><tr><td>30/06/2026 07:30:00</td><td class="bold">RTB0J61</td><td><span class="driver-chip">FLAVIO RODRIGUES DA SILVA</span></td><td class="small-cell">-</td><td class="small-cell">FIORINO B 07H</td><td>1090161</td><td class="num">14</td><td class="num">568.67</td></tr><tr><td>30/06/2026 10:00:00</td><td class="bold">RVW4D80</td><td><span class="driver-chip">KAYRAN PAULINO EVANGELISTA</span></td><td class="small-cell">-</td><td class="small-cell">FIORINO A 10H</td><td>1090164</td><td class="num">12</td><td class="num">611.522</td></tr><tr><td>30/06/2026 07:30:00</td><td class="bold">RVW4D80</td><td><span class="driver-chip">KAYRAN PAULINO EVANGELISTA</span></td><td class="small-cell">-</td><td class="small-cell">FIORINO A 07H</td><td>1090160</td><td class="num">11</td><td class="num">642.264</td></tr><tr><td>30/06/2026 07:30:00</td><td class="bold">SJD6104</td><td><span class="driver-chip">WILSON GONÇALVES DA SILVA</span></td><td class="small-cell">-</td><td class="small-cell">FIORINO AUX 2</td><td>1090147</td><td class="num">14</td><td class="num">559.779</td></tr></tbody></table>
+    </div>
+  </div>
+
+  <div class="footer"><span>Fonte: Arquivo de ocorrências de monitoramento · Mix Alimentos</span><span>HTML compartilhável · base embutida no arquivo · visão somente frota MIX com motorista vinculado</span></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const BASE_DATA = [{"numero":"55037675","veiculo":"JBP5D86","tipo":"Caminhão","status":"Aberto","dataOcorrencia":"22/06/2026 - 08:26","dataEvento":"22/06/2026 - 08:26","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"7h 17m","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-7.147585,"longitude":-48.367199,"contador":1,"dataPrimeiraInteracao":"","rotaMonitor":"PARAUAPEBAS","transportadora":""},{"numero":"55038133","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 08:51","dataEvento":"22/06/2026 - 08:26","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-7.078103,"longitude":-48.138924,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 09:46","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55037821","veiculo":"JBP5D86","tipo":"Caminhão","status":"Aberto","dataOcorrencia":"22/06/2026 - 08:33","dataEvento":"22/06/2026 - 08:33","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"matheus.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"7h 10m","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-7.073447,"longitude":-48.385983,"contador":1,"dataPrimeiraInteracao":"","rotaMonitor":"PARAUAPEBAS","transportadora":""},{"numero":"55038932","veiculo":"JBP5D86","tipo":"Caminhão","status":"Aberto","dataOcorrencia":"22/06/2026 - 09:24","dataEvento":"22/06/2026 - 08:42","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"6h 19m","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.992532,"longitude":-48.418171,"contador":1,"dataPrimeiraInteracao":"","rotaMonitor":"PARAUAPEBAS","transportadora":""},{"numero":"55038944","veiculo":"JBP5D86","tipo":"Caminhão","status":"Aberto","dataOcorrencia":"22/06/2026 - 09:24","dataEvento":"22/06/2026 - 08:51","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"6h 19m","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.918303,"longitude":-48.485996,"contador":1,"dataPrimeiraInteracao":"","rotaMonitor":"PARAUAPEBAS","transportadora":""},{"numero":"55038189","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 08:54","dataEvento":"22/06/2026 - 08:54","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.841098,"longitude":-47.950115,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 09:46","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55038587","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 09:11","dataEvento":"22/06/2026 - 08:56","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.835128,"longitude":-47.921043,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 09:45","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55038412","veiculo":"RIN9D20","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 09:04","dataEvento":"22/06/2026 - 09:00","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-9.772986,"longitude":-48.35519,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 10:03","rotaMonitor":"COLMEIA/GUARAI","transportadora":""},{"numero":"55038619","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 09:12","dataEvento":"22/06/2026 - 09:11","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.730688,"longitude":-47.771267,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 09:40","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55038678","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 09:13","dataEvento":"22/06/2026 - 09:13","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.715096,"longitude":-47.759064,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 09:40","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55038745","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 09:15","dataEvento":"22/06/2026 - 09:15","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.701955,"longitude":-47.751091,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 09:40","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55038795","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 09:17","dataEvento":"22/06/2026 - 09:16","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.68426,"longitude":-47.740383,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 09:39","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55038837","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 09:18","dataEvento":"22/06/2026 - 09:17","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.672798,"longitude":-47.733452,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 09:39","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55039103","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 09:33","dataEvento":"22/06/2026 - 09:18","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.660738,"longitude":-47.726173,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 09:39","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55039104","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 09:33","dataEvento":"22/06/2026 - 09:20","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.652265,"longitude":-47.700039,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 09:39","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55039107","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 09:33","dataEvento":"22/06/2026 - 09:24","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.636373,"longitude":-47.64613,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 09:39","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55039108","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 09:33","dataEvento":"22/06/2026 - 09:26","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.632248,"longitude":-47.621532,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 09:38","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55039109","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 09:33","dataEvento":"22/06/2026 - 09:27","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.630005,"longitude":-47.607841,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 09:38","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55039280","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 09:42","dataEvento":"22/06/2026 - 09:41","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.564708,"longitude":-47.48008,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 09:44","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55039995","veiculo":"RIN9D20","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 10:12","dataEvento":"22/06/2026 - 10:09","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-9.393398,"longitude":-48.562977,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 10:19","rotaMonitor":"COLMEIA/GUARAI","transportadora":""},{"numero":"55040056","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 10:14","dataEvento":"22/06/2026 - 10:12","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.423705,"longitude":-47.39724,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 10:20","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55040058","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 10:15","dataEvento":"22/06/2026 - 10:13","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.410828,"longitude":-47.392616,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 10:21","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55040009","veiculo":"RIN9D20","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 10:13","dataEvento":"22/06/2026 - 10:13","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-9.354663,"longitude":-48.544971,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 10:19","rotaMonitor":"COLMEIA/GUARAI","transportadora":""},{"numero":"55040070","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 10:15","dataEvento":"22/06/2026 - 10:15","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.393446,"longitude":-47.385391,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 10:20","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55040097","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 10:16","dataEvento":"22/06/2026 - 10:16","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.38011,"longitude":-47.382381,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 10:20","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55040215","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 10:21","dataEvento":"22/06/2026 - 10:20","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.339058,"longitude":-47.373013,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 10:31","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55040495","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 10:33","dataEvento":"22/06/2026 - 10:27","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.252883,"longitude":-47.353241,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 10:40","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55040496","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 10:33","dataEvento":"22/06/2026 - 10:30","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.222081,"longitude":-47.353741,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 10:40","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55040500","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 10:33","dataEvento":"22/06/2026 - 10:31","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.209296,"longitude":-47.356556,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 10:40","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55040647","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 10:41","dataEvento":"22/06/2026 - 10:37","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-6.13998,"longitude":-47.371841,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 10:50","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55040810","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 10:52","dataEvento":"22/06/2026 - 10:52","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-5.950623,"longitude":-47.383747,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 11:16","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55040961","veiculo":"RIN9D20","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 11:01","dataEvento":"22/06/2026 - 10:53","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-9.101695,"longitude":-48.52821,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 11:16","rotaMonitor":"COLMEIA/GUARAI","transportadora":""},{"numero":"55041107","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 11:08","dataEvento":"22/06/2026 - 10:56","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-5.908695,"longitude":-47.371819,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 11:16","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55041109","veiculo":"JBP5D82","tipo":"Caminhão","status":"Concluido com recuperaçao","dataOcorrencia":"22/06/2026 - 11:09","dataEvento":"22/06/2026 - 11:00","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"lia.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-5.86752,"longitude":-47.359493,"contador":1,"dataPrimeiraInteracao":"22/06/2026 - 11:16","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55044176","veiculo":"JBP5D82","tipo":"Caminhão","status":"Aberto","dataOcorrencia":"22/06/2026 - 13:17","dataEvento":"22/06/2026 - 13:17","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"matheus.mix","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"2h 26m","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-5.62606,"longitude":-47.40884,"contador":1,"dataPrimeiraInteracao":"","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55044261","veiculo":"JBP5D82","tipo":"Caminhão","status":"Aberto","dataOcorrencia":"22/06/2026 - 13:24","dataEvento":"22/06/2026 - 13:23","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"2h 19m","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-5.570613,"longitude":-47.446007,"contador":1,"dataPrimeiraInteracao":"","rotaMonitor":"AÇAILANDI/IMPERATRI","transportadora":""},{"numero":"55044553","veiculo":"RIN9D20","tipo":"Caminhão","status":"Aberto","dataOcorrencia":"22/06/2026 - 13:41","dataEvento":"22/06/2026 - 13:38","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"2h 2m","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-8.924829,"longitude":-48.509636,"contador":1,"dataPrimeiraInteracao":"","rotaMonitor":"COLMEIA/GUARAI","transportadora":""},{"numero":"55044756","veiculo":"JBP5D86","tipo":"Caminhão","status":"Aberto","dataOcorrencia":"22/06/2026 - 13:54","dataEvento":"22/06/2026 - 13:54","tempoDuracao":"","dataRetorno":"","ultimoEvento":"MIX EXCESSO DE VELOCIDADE 90 KM","ultimoOperador":"","proprietario":"MIX ALIMENTOS LTDA","empresa":"","tempoAberto":"1h 49m","regra":"MIX EXCESSO DE VELOCIDADE 90 KM","latitude":-5.4793,"longitude":-48.770306,"contador":1,"dataPrimeiraInteracao":"","rotaMonitor":"PARAUAPEBAS","transportadora":""}];
+const STORAGE_KEY = 'mix_ocorrencias_monitoramento_v1';
+const STORAGE_SCALE_KEY = 'mix_escala_motorista_veiculo_v2';
+const STORAGE_NOTES_KEY = 'mix_notas_manuais_veiculo_v1';
+function saveManualNote(vehicle, text) {
+  manualNotes[normVehicle(vehicle)] = text;
+  if(!SHAREABLE_SNAPSHOT) localStorage.setItem(STORAGE_NOTES_KEY, JSON.stringify(manualNotes));
+}
+const SHAREABLE_SNAPSHOT = true;
+let manualNotes = SHAREABLE_SNAPSHOT ? {} : (JSON.parse(localStorage.getItem(STORAGE_NOTES_KEY) || 'null') || {});
+// Configuração da integração com Google Sheets via Apps Script.
+// A SECRET aqui é visível pra qualquer um que veja o código-fonte deste HTML (F12) —
+// não é proteção real, só filtra escrita casual/acidental.
+const SHEETS_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbz-hofIVTIsoK3d9M6PLNftJUZt1XyhyOXwDXSE1nK6xl9aTcv8cOpW0w3L0-JP6OU6/exec";
+const SHEETS_SECRET = "mix-monitoramento-2026-x7f2";
+async function sendRowsToSheet(sheetName, rows) {
+  if(!rows.length) { toast('Nada para enviar.'); return; }
+  try {
+    await fetch(SHEETS_WEBAPP_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: JSON.stringify({ secret: SHEETS_SECRET, sheet: sheetName, rows })
+    });
+    toast(`Enviado ${rows.length} linha(s) para a aba "${sheetName}" no Google Sheets. Modo no-cors não confirma erro aqui — confira na planilha em ~10s.`);
+  } catch(err) {
+    toast('Falha de rede ao enviar: ' + err.message);
+  }
+}
+const ESCALA_DATA = [{"cargaERP": "1090166", "entregas": "7", "pendentes": "0", "pedidos": "9", "pesoKG": "550.028", "destino": "FIORINO A 14H", "observacao": "", "motorista": "PEDIDOS AVULSO PALMAS", "telefoneMotorista": "32126509", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "OLH0000", "frota": "", "data": "30/06/2026 14:00:00", "dataRetorno": ""}, {"cargaERP": "1090165", "entregas": "12", "pendentes": "0", "pedidos": "15", "pesoKG": "722.724", "destino": "FIORINO B 10H", "observacao": "", "motorista": "RODRIGO RIBEIRO BARBOSA DOS REIS", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "QKD3A46", "frota": "", "data": "30/06/2026 10:00:00", "dataRetorno": ""}, {"cargaERP": "1090164", "entregas": "12", "pendentes": "0", "pedidos": "12", "pesoKG": "611.522", "destino": "FIORINO A 10H", "observacao": "", "motorista": "KAYRAN PAULINO EVANGELISTA", "telefoneMotorista": "99299 - 7596", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "RVW4D80", "frota": "", "data": "30/06/2026 10:00:00", "dataRetorno": ""}, {"cargaERP": "1090163", "entregas": "7", "pendentes": "0", "pedidos": "7", "pesoKG": "527.729", "destino": "FIORINO D 07H", "observacao": "", "motorista": "RODRIGO RIBEIRO BARBOSA DOS REIS", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "QKD3A46", "frota": "", "data": "30/06/2026 07:30:00", "dataRetorno": ""}, {"cargaERP": "1090162", "entregas": "8", "pendentes": "0", "pedidos": "9", "pesoKG": "650.301", "destino": "FIORINO C 07H", "observacao": "", "motorista": "WESLEY SERPA DA SILVA", "telefoneMotorista": "99112 - 5500", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "PJZ0A29", "frota": "", "data": "30/06/2026 07:30:00", "dataRetorno": ""}, {"cargaERP": "1090161", "entregas": "14", "pendentes": "0", "pedidos": "14", "pesoKG": "568.67", "destino": "FIORINO B 07H", "observacao": "", "motorista": "FLAVIO RODRIGUES DA SILVA", "telefoneMotorista": "992247156", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "RTB0J61", "frota": "", "data": "30/06/2026 07:30:00", "dataRetorno": ""}, {"cargaERP": "1090160", "entregas": "11", "pendentes": "0", "pedidos": "15", "pesoKG": "642.264", "destino": "FIORINO A 07H", "observacao": "", "motorista": "KAYRAN PAULINO EVANGELISTA", "telefoneMotorista": "99299 - 7596", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "RVW4D80", "frota": "", "data": "30/06/2026 07:30:00", "dataRetorno": ""}, {"cargaERP": "1090159", "entregas": "11", "pendentes": "0", "pedidos": "18", "pesoKG": "2 937.645", "destino": "TAQUARALTO", "observacao": "", "motorista": "HELIO MARCELINO DOS SANTOS", "telefoneMotorista": "992769983", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "PLL3F14", "frota": "", "data": "30/06/2026 07:30:00", "dataRetorno": ""}, {"cargaERP": "1090158", "entregas": "12", "pendentes": "0", "pedidos": "17", "pesoKG": "3 534.459", "destino": "PALMAS SUL", "observacao": "", "motorista": "RAIMUNDO RODRIGUES DOS SANTOS FILHO", "telefoneMotorista": "992469143", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "JBP5D76", "frota": "35", "data": "30/06/2026 08:02:19", "dataRetorno": ""}, {"cargaERP": "1090157", "entregas": "7", "pendentes": "0", "pedidos": "15", "pesoKG": "3 254.555", "destino": "PALMAS NORTE", "observacao": "", "motorista": "EMANUEL RIBAMAR MARQUES DA ROCHA", "telefoneMotorista": "984851956", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "OLN6D33", "frota": "", "data": "30/06/2026 07:30:00", "dataRetorno": ""}, {"cargaERP": "1090156", "entregas": "36", "pendentes": "0", "pedidos": "45", "pesoKG": "5 603.647", "destino": "PORTO NAC/NATIVIDAD", "observacao": "", "motorista": "JORDANES INACIO DA SILVA", "telefoneMotorista": "984719706", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "MWA0531", "frota": "4", "data": "30/06/2026 07:46:41", "dataRetorno": ""}, {"cargaERP": "1090155", "entregas": "6", "pendentes": "0", "pedidos": "7", "pesoKG": "664.98", "destino": "TRANSF SANTA FE", "observacao": "", "motorista": "DANIEL MOURA DA CONCEIÇÃO", "telefoneMotorista": "992800554", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "NVO8F94", "frota": "", "data": "30/06/2026 06:00:00", "dataRetorno": ""}, {"cargaERP": "1090153", "entregas": "42", "pendentes": "0", "pedidos": "51", "pesoKG": "4 212.235", "destino": "LUZIMANGU/MIRACEMA/", "observacao": "", "motorista": "UESLEY XAVIER DA SILVA", "telefoneMotorista": "992519705", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "RIM5E10", "frota": "", "data": "30/06/2026 07:23:19", "dataRetorno": ""}, {"cargaERP": "1090152", "entregas": "40", "pendentes": "0", "pedidos": "43", "pesoKG": "2 858.718", "destino": "MIRACEMA", "observacao": "", "motorista": "ROBERTO SILVA CARVALHO", "telefoneMotorista": "992221450", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "NJF6G82", "frota": "", "data": "30/06/2026 07:30:00", "dataRetorno": ""}, {"cargaERP": "1090151", "entregas": "20", "pendentes": "0", "pedidos": "20", "pesoKG": "2 644.215", "destino": "PARAISO DO TOCANTINS", "observacao": "", "motorista": "HENRIQUE ANTONIO DE ALMEIDA", "telefoneMotorista": "984730621", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "BHM2D90", "frota": "", "data": "30/06/2026 06:50:32", "dataRetorno": ""}, {"cargaERP": "1090150", "entregas": "49", "pendentes": "0", "pedidos": "54", "pesoKG": "3 764.958", "destino": "PEIXE/GURUPI", "observacao": "", "motorista": "MADSON ALVES SANTANA", "telefoneMotorista": "992794638", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "PAN5A78", "frota": "", "data": "30/06/2026 07:11:22", "dataRetorno": ""}, {"cargaERP": "1090148", "entregas": "11", "pendentes": "0", "pedidos": "13", "pesoKG": "3 602.579", "destino": "ARAGUAINA", "observacao": "", "motorista": "LUEDISON SOUSA PEREIRA", "telefoneMotorista": "99133 - 2131", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "RKO8D24", "frota": "30", "data": "30/06/2026 08:23:55", "dataRetorno": ""}, {"cargaERP": "1090147", "entregas": "14", "pendentes": "0", "pedidos": "14", "pesoKG": "559.779", "destino": "FIORINO AUX 2", "observacao": "", "motorista": "WILSON GONÇALVES DA SILVA", "telefoneMotorista": "99249-8822", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "SJD6104", "frota": "", "data": "30/06/2026 07:30:00", "dataRetorno": ""}, {"cargaERP": "1090146", "entregas": "12", "pendentes": "0", "pedidos": "15", "pesoKG": "533.327", "destino": "FIORINO AUX 1", "observacao": "", "motorista": "WILSON GONÇALVES DA SILVA", "telefoneMotorista": "99249-8822", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "NVO8F94", "frota": "", "data": "30/06/2026 07:30:00", "dataRetorno": ""}, {"cargaERP": "1090145", "entregas": "44", "pendentes": "0", "pedidos": "48", "pesoKG": "2 828.373", "destino": "ESTREITO", "observacao": "", "motorista": "DANIEL BARBOSA DE SOUSA", "telefoneMotorista": "992369029", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "RIN4E79", "frota": "", "data": "30/06/2026 06:54:34", "dataRetorno": ""}, {"cargaERP": "1090144", "entregas": "31", "pendentes": "0", "pedidos": "40", "pesoKG": "2 722.488", "destino": "IMPERATRIZ", "observacao": "", "motorista": "DIONE DE SOUZA PEREIRA OLIVEIRA", "telefoneMotorista": "992354073", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "JBP5D78", "frota": "36", "data": "30/06/2026 07:58:23", "dataRetorno": ""}, {"cargaERP": "1090143", "entregas": "35", "pendentes": "0", "pedidos": "36", "pesoKG": "3 200.028", "destino": "XAMBIOA", "observacao": "", "motorista": "KALEBY SANTANA SILVA", "telefoneMotorista": "99207-9809", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "OLM8D71", "frota": "", "data": "30/06/2026 07:30:00", "dataRetorno": ""}, {"cargaERP": "1090142", "entregas": "73", "pendentes": "0", "pedidos": "78", "pesoKG": "4 451.108", "destino": "AUGUSTINO/ESPERANTI", "observacao": "", "motorista": "GABRIEL DIAS MOURA DA SILVA", "telefoneMotorista": "992656319", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "ROA4F62", "frota": "", "data": "30/06/2026 07:30:00", "dataRetorno": ""}, {"cargaERP": "1089722", "entregas": "33", "pendentes": "0", "pedidos": "43", "pesoKG": "2881.34", "destino": "ESPERANTINA", "observacao": "", "motorista": "LAZARO NUNES DE OLIVEIRA", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "JBP5D82", "frota": "29", "data": "22/06/2026 07:56:20", "dataRetorno": ""}, {"cargaERP": "1089949", "entregas": "45", "pendentes": "0", "pedidos": "53", "pesoKG": "4773.34", "destino": "PARAUAPEBAS", "observacao": "", "motorista": "ALMIR BORGES MARTINS", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "JBP5D86", "frota": "32", "data": "22/06/2026 07:57:03", "dataRetorno": ""}, {"cargaERP": "1089963", "entregas": "60", "pendentes": "0", "pedidos": "66", "pesoKG": "3442.94", "destino": "COLMEIA/GUARAI", "observacao": "", "motorista": "RAIMUNDO RODRIGUES DOS SANTOS FILHO", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "veiculo": "RIN9D20", "frota": "", "data": "22/06/2026 08:03:10", "dataRetorno": ""}, {"cargaERP": "1090207", "motorista": "THALES BRUNO GUIMARAES SILVA SOUZA", "veiculo": "RMP1E50", "destino": "QUARTETTOS PARAISO", "data": "01/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090206", "motorista": "WESLEY SERPA DA SILVA", "veiculo": "PZJ0A29", "destino": "FIORINO B 14H", "data": "01/07/2026 14:00:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090205", "motorista": "KAYRAN PAULINO EVANGELISTA", "veiculo": "RVW4D80", "destino": "FIORINO A 14H", "data": "01/07/2026 14:00:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090200", "motorista": "RODRIGO COELHO DA SILVA", "veiculo": "MXB6D14", "destino": "TAQUARALTO", "data": "01/07/2026 07:58:18", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090199", "motorista": "THALES BRUNO GUIMARAES SILVA SOUZA", "veiculo": "RMP1E50", "destino": "PALMAS SUL", "data": "01/07/2026 07:15:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090198", "motorista": "HENRIQUE ANTONIO DE ALMEIDA", "veiculo": "BHM2D90", "destino": "PALMAS NORTE", "data": "01/07/2026 07:20:41", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090197", "motorista": "EMANUEL RIBAMAR MARQUES DA ROCHA", "veiculo": "OLN6D33", "destino": "TAQUARUÇU/TAQUARALT", "data": "01/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090190", "motorista": "ANTONIO LUIZ PEREIRA FILHO", "veiculo": "OYA5G08", "destino": "PARAISO DO TOCANTINS", "data": "01/07/2026 06:56:05", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090189", "motorista": "PAULO COSTA DA SILVA", "veiculo": "QHM1A78", "destino": "PORTO NACIONAL", "data": "01/07/2026 06:30:32", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090188", "motorista": "JEOVANE DA CRUZ SOUSA", "veiculo": "JAU0122", "destino": "GURUPI", "data": "01/07/2026 07:42:45", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090187", "motorista": "JUILSON CASTRO DE SOUZA", "veiculo": "JBP5D76", "destino": "SANTANA DO ARAGUAIA", "data": "01/07/2026 07:11:24", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090177", "motorista": "WILSON GONÇALVES DA SILVA", "veiculo": "SJD6104", "destino": "FIORINO AUX 3", "data": "01/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090175", "motorista": "DANIEL MOURA DA CONCEIÇÃO", "veiculo": "NVO8F94", "destino": "FIORINO AUX 1", "data": "01/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090174", "motorista": "LUCAS JONATHAS PAIVA SILVA", "veiculo": "RKO8D24", "destino": "ARAGUAINA", "data": "01/07/2026 07:31:52", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090172", "motorista": "KALEBY SANTANA SILVA", "veiculo": "OLM8D71", "destino": "TOCANTINOPOLIS", "data": "01/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090171", "motorista": "WELISON DE ALMEIDA SANTOS", "veiculo": "QVF8I47", "destino": "MARABÁ", "data": "01/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090170", "motorista": "RAIMUNDO DERCIO COSTA SANTIAGO", "veiculo": "RIN4E77", "destino": "ESTREITO/IMPERATRI", "data": "01/07/2026 08:08:44", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090168", "motorista": "JUSCIMAR SIQUEIRA DE SOUSA", "veiculo": "RIM5D95", "destino": "AÇAILANDI/ITINGA", "data": "01/07/2026 08:46:17", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090279", "motorista": "KAYRAN PAULINO EVANGELISTA", "veiculo": "RVW4D80", "destino": "FIORINO C 07H", "data": "03/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090274", "motorista": "REGIMAR LIMA VIEIRA", "veiculo": "JBP5D79", "destino": "ROTA DIA A DIA", "data": "03/07/2026 07:52:25", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090271", "motorista": "RAIMUNDO RODRIGUES DOS SANTOS FILHO", "veiculo": "JBP5D81", "destino": "ESPEC PALMAS SUL", "data": "03/07/2026 08:19:47", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090268", "motorista": "HELIO MARCELINO DOS SANTOS", "veiculo": "PLL3F14", "destino": "MIRACEMA", "data": "03/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090267", "motorista": "ROBERTO SILVA CARVALHO", "veiculo": "NJF6G82", "destino": "MIRANORTE", "data": "03/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090266", "motorista": "EMANUEL RIBAMAR MARQUES DA ROCHA", "veiculo": "OLN6D33", "destino": "LAGOA DA CONFUSAO", "data": "03/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090265", "motorista": "JEOVANE DA CRUZ SOUSA", "veiculo": "JAU0122", "destino": "NATIVIDAD/PORTO NAC", "data": "03/07/2026 07:37:27", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090264", "motorista": "PAULO COSTA DA SILVA", "veiculo": "QHM1A78", "destino": "GURUPI", "data": "03/07/2026 07:00:10", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090263", "motorista": "HENRIQUE ANTONIO DE ALMEIDA", "veiculo": "BHM2D90", "destino": "PARAISO DO TOCANTINS", "data": "03/07/2026 07:23:49", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090262", "motorista": "ISMAELDO DE SOUSA GOMES", "veiculo": "QKJ3D95", "destino": "ESPEC PARAISO", "data": "03/07/2026 07:15:03", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090260", "motorista": "DANIEL MOURA DA CONCEIÇÃO", "veiculo": "NVO8F94", "destino": "FIORINO AUX 4", "data": "03/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090258", "motorista": "WILSON GONÇALVES DA SILVA", "veiculo": "SJD6104", "destino": "FIORINO AUX 2", "data": "03/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090256", "motorista": "WELITON GAMA DA SILVA", "veiculo": "JBP5D78", "destino": "ARAGUAINA", "data": "03/07/2026 07:48:25", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090255", "motorista": "GUSTAVO CONCEICAO PEREIRA", "veiculo": "QKA6D96", "destino": "CAMPELO", "data": "03/07/2026 09:04:15", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090254", "motorista": "ALEXANDRO LUCENA DO NASCIMENTO", "veiculo": "RIM5E05", "destino": "SANTA FÉ", "data": "03/07/2026 06:59:30", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090253", "motorista": "KALEBY SANTANA SILVA", "veiculo": "OLM8D71", "destino": "COLINAS", "data": "03/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090251", "motorista": "DANIEL BARBOSA DE SOUSA", "veiculo": "RIN4E79", "destino": "TOCANTINOPOLIS", "data": "03/07/2026 07:35:42", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090250", "motorista": "GABRIEL DIAS MOURA DA SILVA", "veiculo": "ROA4F62", "destino": "ESPERANTINA", "data": "03/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090308", "motorista": "HENRIQUE ANTONIO DE ALMEIDA", "veiculo": "BHM2D90", "destino": "PALMAS SUL", "data": "06/07/2026 08:05:31", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090306", "motorista": "JORDANES INACIO DA SILVA", "veiculo": "MWA0531", "destino": "PARAISO DO TOCANTINS", "data": "06/07/2026 07:16:23", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090305", "motorista": "MADSON ALVES SANTANA", "veiculo": "PAN5A78", "destino": "PONTE ALTA DO TOCANT", "data": "06/07/2026 07:27:28", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090304", "motorista": "EMANUEL RIBAMAR MARQUES DA ROCHA", "veiculo": "OLN6D33", "destino": "NATIVIDADE", "data": "06/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090303", "motorista": "JEOVANE DA CRUZ SOUSA", "veiculo": "JAU0122", "destino": "COLMEIA/GUARAI", "data": "06/07/2026 08:52:09", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090302", "motorista": "REGIMAR LIMA VIEIRA", "veiculo": "OLI3A69", "destino": "REDENÇÃO-/XINGUARA", "data": "06/07/2026 08:40:41", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090301", "motorista": "HELIO MARCELINO DOS SANTOS", "veiculo": "PLL3F14", "destino": "ALVORADA", "data": "06/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090300", "motorista": "PAULO COSTA DA SILVA", "veiculo": "QHM1A78", "destino": "FORMOSO DO ARAGUAIA", "data": "06/07/2026 10:29:36", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090299", "motorista": "THALES BRUNO GUIMARAES SILVA SOUZA", "veiculo": "RMP1E50", "destino": "GURUPI", "data": "06/07/2026 06:23:32", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090298", "motorista": "ANTONIO LUIZ PEREIRA FILHO", "veiculo": "OYA5G08", "destino": "DIANOPOLIS", "data": "06/07/2026 06:28:44", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090297", "motorista": "FLAVIO FERREIRA VIRGOLINO", "veiculo": "JBP5D86", "destino": "ARAGUAINA", "data": "06/07/2026 07:43:11", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090296", "motorista": "LUEDISON SOUSA PEREIRA", "veiculo": "RKO8D24", "destino": "BALSAS/CAROLINA-", "data": "06/07/2026 07:39:07", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090294", "motorista": "RAIMUNDO DERCIO COSTA SANTIAGO", "veiculo": "RIN4E77", "destino": "MARABÁ", "data": "06/07/2026 07:52:44", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090293", "motorista": "JUSCIMAR SIQUEIRA DE SOUSA", "veiculo": "RKO8D25", "destino": "PARAUAPEBAS", "data": "06/07/2026 07:36:53", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090292", "motorista": "DIEGO ALEXANDRE RODRIGUES RIBAS", "veiculo": "JJL1C28", "destino": "GRAJAU", "data": "06/07/2026 08:28:02", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090291", "motorista": "WELBSON GAMA PEREIRA", "veiculo": "RIM5D95", "destino": "IMPERATRIZ", "data": "06/07/2026 07:58:22", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090290", "motorista": "ALMIR BORGES MARTINS", "veiculo": "JBP5D82", "destino": "AÇAILANDIA", "data": "06/07/2026 07:54:41", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090289", "motorista": "KALEBY SANTANA SILVA", "veiculo": "TVB6I95", "destino": "COLINAS", "data": "06/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}, {"cargaERP": "1090288", "motorista": "WELISON DE ALMEIDA SANTOS", "veiculo": "QVF8I47", "destino": "AUGUSTINOPOLIS", "data": "06/07/2026 07:30:00", "entregas": "", "pendentes": "", "pedidos": "", "pesoKG": "", "observacao": "", "telefoneMotorista": "", "ajudante1": "", "ajudante2": "", "ajudante3": "", "ajudante4": "", "frota": "", "dataRetorno": ""}];
+const ROUTE_MAP = { 'JBP5D82':'AÇAILANDI/IMPERATRI', 'JBP5D86':'PARAUAPEBAS', 'RIN9D20':'COLMEIA/GUARAI' };
+const MIX_KEYWORDS = ['MIX ALIMENTOS', 'MIXALIMENTOS', 'MIX'];
+const MIX_FROTA_BASE = [
+  'JBP5D82','JBP5D86','JBP5D81','JBP5D79','JBP5D78','JBP5D76',
+  'RIN9D20','RIN4E79','RIN4E81','RIM5E05','RIM5E10','RIM5D85','RIM5D95',
+  'RKO8D26','RKO8D25','RKO8D24','RMA6F24','TVE2G82','OLH7H45','OLI3A69',
+  'QKF0D61','QKA1F54','QKI8E30','QKI2E52','QKK8E91','QKJ3D95','QKA6D96'
+];
+const MIX_VEHICLES = new Set([...Object.keys(ROUTE_MAP), ...MIX_FROTA_BASE, ...BASE_DATA.map(r => normVehicle(r.veiculo)).filter(Boolean)]);
+function mixText(s) { return normText(s).replace(/[^a-z0-9]/g,''); }
+function isMixRecord(r) {
+  const v = normVehicle(r.veiculo);
+  const owner = mixText([r.proprietario, r.empresa, r.transportadora, r['Proprietário'], r['Proprietario'], r['Empresa'], r['Transportadora']].join(' '));
+  if(owner.includes('mixalimentos') || owner === 'mix' || owner.includes('mix')) return true;
+  return MIX_VEHICLES.has(v);
+}
+function filterMixRecords(rows) { return rows.filter(isMixRecord); }
+function countThirdPartyRows(rows) { return rows.filter(r => !isMixRecord(r)).length; }
+let allData = [];
+let filteredData = [];
+let scaleData = [];
+let scaleIndex = {};
+let chartVeiculos, chartStatus, chartHoras, chartMotoristas, map, mapLayer, lineLayer;
+
+const $ = (id) => document.getElementById(id);
+function toast(msg) { const t=$('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none', 3600); }
+function normText(s) { return String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim(); }
+function onlyDate(str) {
+  if(!str) return null;
+  if(str instanceof Date && !isNaN(str)) return str;
+  const s = String(str);
+  let m = s.match(/(\d{2})\/(\d{2})\/(\d{4})(?:\s*-?\s*(\d{2}):(\d{2}))?/);
+  if(m) return new Date(+m[3], +m[2]-1, +m[1], +(m[4]||0), +(m[5]||0));
+  m = s.match(/(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+  if(m) return new Date(+m[1], +m[2]-1, +m[3], +(m[4]||0), +(m[5]||0));
+  return null;
+}
+function dateKey(d) { if(!d) return ''; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function dateBR(d) { if(!d) return '-'; return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
+function dateTimeBR(d) { if(!d) return '-'; return `${dateBR(d)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+function parseNum(v) {
+  if(v===null || v===undefined || v==='') return null;
+  if(typeof v==='number') return v;
+  let s=String(v).replace(/R\$/g,'').trim();
+  // Latitude/longitude podem vir como -5.4793 ou -5,4793. Só remove ponto como milhar quando há vírgula decimal.
+  if(s.includes(',')) s = s.replace(/\./g,'').replace(',', '.');
+  s = s.replace(/\s+/g,'');
+  const n=parseFloat(s);
+  return isNaN(n)?null:n;
+}
+
+function normVehicle(v) { return String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g,'').trim(); }
+function cleanCell(v) { const s = String(v ?? '').trim(); return (s && s.toLowerCase() !== 'nan' && s !== '.') ? s : ''; }
+function uniqueNonEmpty(arr) { return [...new Set(arr.map(cleanCell).filter(Boolean))]; }
+function normalizeScaleRow(raw) {
+  const r = {...raw};
+  const get = (...keys) => { for(const k of keys) { if(r[k] !== undefined && r[k] !== null && String(r[k]).trim() !== '') return r[k]; } return ''; };
+  return {
+    cargaERP: cleanCell(get('cargaERP','Carga ERP','Carga','Carga Erp')),
+    entregas: cleanCell(get('entregas','Entregas')),
+    pendentes: cleanCell(get('pendentes','Pendentes')),
+    pedidos: cleanCell(get('pedidos','Pedidos')),
+    pesoKG: cleanCell(get('pesoKG','Peso(KG)','Peso KG','Peso')),
+    destino: cleanCell(get('destino','Destino','Rota')),
+    observacao: cleanCell(get('observacao','Observação','Observacao')),
+    motorista: cleanCell(get('motorista','Motorista')),
+    telefoneMotorista: cleanCell(get('telefoneMotorista','Telefone Motorista')),
+    ajudante1: cleanCell(get('ajudante1','Ajudante 1')),
+    ajudante2: cleanCell(get('ajudante2','Ajudante 2')),
+    ajudante3: cleanCell(get('ajudante3','Ajudante 3')),
+    ajudante4: cleanCell(get('ajudante4','Ajudante 4')),
+    veiculo: cleanCell(get('veiculo','Veículo','Veiculo','Placa')),
+    frota: cleanCell(get('frota','Frota')),
+    data: cleanCell(get('data','Data')),
+    dataRetorno: cleanCell(get('dataRetorno','Data Retorno'))
+  };
+}
+function scaleDate(row) { return onlyDate(row?.data || row?.dataRetorno || ''); }
+function scaleKey(row) {
+  return [normVehicle(row.veiculo), dateKey(scaleDate(row)), String(row.cargaERP||''), normText(row.motorista), normText(row.destino)].join('|');
+}
+function buildScaleIndex() {
+  scaleIndex = {};
+  scaleData.forEach(row => {
+    const key = normVehicle(row.veiculo);
+    if(!key) return;
+    (scaleIndex[key] ||= []).push(row);
+  });
+  Object.values(scaleIndex).forEach(rows => rows.sort((a,b)=>(scaleDate(a)||0)-(scaleDate(b)||0)));
+}
+function getScaleRows(vehicle, refDate=null) {
+  const rows = scaleIndex[normVehicle(vehicle)] || [];
+  if(!refDate || !rows.length) return rows;
+  const refKey = dateKey(refDate);
+  const exact = rows.filter(r => dateKey(scaleDate(r)) === refKey);
+  if(exact.length) return exact;
+  const previous = rows.filter(r => { const d=scaleDate(r); return d && d <= refDate; });
+  if(previous.length) {
+    const maxTime = Math.max(...previous.map(r => +scaleDate(r)).filter(Boolean));
+    return previous.filter(r => +scaleDate(r) === maxTime);
+  }
+  const dated = rows.filter(r => scaleDate(r));
+  if(dated.length) {
+    const minTime = Math.min(...dated.map(r => +scaleDate(r)).filter(Boolean));
+    return dated.filter(r => +scaleDate(r) === minTime);
+  }
+  return rows;
+}
+function getScaleMatchType(vehicle, refDate=null) {
+  const rows = scaleIndex[normVehicle(vehicle)] || [];
+  if(!rows.length) return 'sem vínculo';
+  if(!refDate) return 'placa';
+  const refKey = dateKey(refDate);
+  if(rows.some(r => dateKey(scaleDate(r)) === refKey)) return 'data exata';
+  if(rows.some(r => { const d=scaleDate(r); return d && d <= refDate; })) return 'escala anterior';
+  return 'escala próxima';
+}
+function displayMotorista(vehicle, refDate=null) { const rows=getScaleRows(vehicle, refDate); const vals=uniqueNonEmpty(rows.map(r=>r.motorista)); return vals.length ? vals.join(' / ') : 'Sem vínculo'; }
+function displayAjudantes(vehicle, refDate=null) { const rows=getScaleRows(vehicle, refDate); const vals=uniqueNonEmpty(rows.flatMap(r=>[r.ajudante1,r.ajudante2,r.ajudante3,r.ajudante4])); return vals.length ? vals.join(' / ') : '-'; }
+function displayDestino(vehicle, refDate=null) { const rows=getScaleRows(vehicle, refDate); const vals=uniqueNonEmpty(rows.map(r=>r.destino)); return vals.length ? vals.join(' / ') : (ROUTE_MAP[vehicle] || 'Não vinculada'); }
+function displayCargaERP(vehicle, refDate=null) { const rows=getScaleRows(vehicle, refDate); const vals=uniqueNonEmpty(rows.map(r=>r.cargaERP)); return vals.length ? vals.join(' / ') : '-'; }
+function displayMotoristaOcorrencia(r) { return displayMotorista(r.veiculo, onlyDate(r.dataEvento || r.dataOcorrencia)); }
+function displayAjudantesOcorrencia(r) { return displayAjudantes(r.veiculo, onlyDate(r.dataEvento || r.dataOcorrencia)); }
+function displayDestinoOcorrencia(r) { return displayDestino(r.veiculo, onlyDate(r.dataEvento || r.dataOcorrencia)); }
+function displayCargaERPOcorrencia(r) { return displayCargaERP(r.veiculo, onlyDate(r.dataEvento || r.dataOcorrencia)); }
+function driverBadge(vehicle, refDate=null) { const txt=displayMotorista(vehicle, refDate); const warn=txt==='Sem vínculo'?' warn':''; const tipo=getScaleMatchType(vehicle, refDate); return `<span class="driver-chip${warn}">${txt}</span><span class="link-type">${tipo}</span>`; }
+function driverBadgeForOccurrence(r) { return driverBadge(r.veiculo, onlyDate(r.dataEvento || r.dataOcorrencia)); }
+function summarizeDriversForVehicle(rows, vehicle) {
+  const counts = {};
+  const matchTypes = {};
+  rows.forEach(r => {
+    const m = displayMotoristaOcorrencia(r);
+    const refDate = onlyDate(r.dataEvento || r.dataOcorrencia);
+    const mt = getScaleMatchType(r.veiculo || vehicle, refDate);
+    counts[m] = (counts[m]||0) + 1;
+    (matchTypes[m] ||= new Set()).add(mt);
+  });
+  const parts = Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([m,c]) => {
+    const types = matchTypes[m];
+    const approxOnly = types && !types.has('data exata') && m !== 'Sem vínculo';
+    const tag = approxOnly ? ' <span class="approx-tag" title="Nenhuma ocorrência deste motorista/veículo teve escala na data exata — vínculo por escala de outro dia">aprox.</span>' : '';
+    return `${m} (${c})${tag}`;
+  });
+  if(parts.length) return parts.join(' / ');
+  return displayMotorista(vehicle);
+}
+function matchTypeNote(rows) {
+  const types = new Set(rows.map(r => getScaleMatchType(r.veiculo, onlyDate(r.dataEvento || r.dataOcorrencia))));
+  if(types.size === 1 && types.has('data exata')) return '';
+  if(types.has('data exata') && (types.has('escala anterior') || types.has('escala próxima'))) return ' <span class="approx-tag" title="Parte destas ocorrências só tem vínculo por escala de outro dia, não do dia exato">parcialmente aprox.</span>';
+  if(types.has('escala anterior') || types.has('escala próxima')) return ' <span class="approx-tag" title="Vínculo por escala de outro dia — não confirmado para a data exata da ocorrência">aprox.</span>';
+  return '';
+}
+function driverGroupKey(r) { return displayMotoristaOcorrencia(r) || 'Sem vínculo'; }
+function statusType(s) { const n=normText(s); if(n.includes('aberto')) return 'Aberto'; if(n.includes('concluido') || n.includes('concluido')) return 'Concluído'; return s || 'Sem status'; }
+function isOpen(r) { return statusType(r.status)==='Aberto'; }
+function timeOpenMinutes(s) { if(!s) return null; const m=String(s).match(/(?:(\d+)h)?\s*(?:(\d+)m)?/i); if(!m) return null; return +(m[1]||0)*60 + +(m[2]||0); }
+function minsToLabel(min) { if(min===null || min===undefined || isNaN(min)) return '-'; const h=Math.floor(min/60), m=Math.round(min%60); return h>0 ? `${h}h ${m}m` : `${m} min`; }
+function firstInteractionMinutes(r) { const e=onlyDate(r.dataEvento || r.dataOcorrencia); const i=onlyDate(r.dataPrimeiraInteracao); if(!e || !i) return null; return Math.max(0, Math.round((i-e)/60000)); }
+function dedupe(rows) { const map = new Map(); rows.forEach(r => { if(r.numero) map.set(String(r.numero), normalizeRow(r)); }); return [...map.values()].sort((a,b)=>(onlyDate(a.dataEvento||a.dataOcorrencia)||0)-(onlyDate(b.dataEvento||b.dataOcorrencia)||0)); }
+function normalizeRow(raw) {
+  const r = {...raw};
+  r.numero = String(r.numero ?? r['Número'] ?? r['Numero'] ?? '').replace(/\.0$/,'').trim();
+  r.veiculo = String(r.veiculo ?? r['Veículo'] ?? r['Veiculo'] ?? '').trim();
+  r.tipo = String(r.tipo ?? r['Tipo'] ?? '').trim();
+  r.status = String(r.status ?? r['Status/Finalização'] ?? r['Status/Finalizacao'] ?? '').trim();
+  r.dataOcorrencia = String(r.dataOcorrencia ?? r['Data Ocorrência'] ?? r['Data Ocorrencia'] ?? '').trim();
+  r.dataEvento = String(r.dataEvento ?? r['Data Evento'] ?? '').trim();
+  r.ultimoEvento = String(r.ultimoEvento ?? r['Último Evento'] ?? r['Ultimo Evento'] ?? '').trim();
+  r.ultimoOperador = String(r.ultimoOperador ?? r['Último Operador'] ?? r['Ultimo Operador'] ?? '').trim();
+  r.proprietario = String(r.proprietario ?? r['Proprietário'] ?? r['Proprietario'] ?? '').trim();
+  r.empresa = String(r.empresa ?? r['Empresa'] ?? '').trim();
+  r.transportadora = String(r.transportadora ?? r['Transportadora'] ?? '').trim();
+  r.tempoAberto = String(r.tempoAberto ?? r['Tempo Aberto'] ?? '').trim();
+  r.regra = String(r.regra ?? r['Nome da regra violada'] ?? r['Regra'] ?? '').trim();
+  r.dataPrimeiraInteracao = String(r.dataPrimeiraInteracao ?? r['Data 1ª Interação'] ?? r['Data 1a Interacao'] ?? '').trim();
+  r.latitude = parseNum(r.latitude ?? r['Latitude']);
+  r.longitude = parseNum(r.longitude ?? r['Longitude']);
+  r.rotaMonitor = r.rotaMonitor || ROUTE_MAP[r.veiculo] || 'Não vinculada ao monitor';
+  return r;
+}
+function loadData() {
+  const imported = SHAREABLE_SNAPSHOT ? [] : JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  const storedScale = SHAREABLE_SNAPSHOT ? null : JSON.parse(localStorage.getItem(STORAGE_SCALE_KEY) || 'null');
+  scaleData = (storedScale || ESCALA_DATA).map(normalizeScaleRow).filter(r=>r.veiculo);
+  buildScaleIndex();
+  const raw = dedupe([...BASE_DATA, ...imported]);
+  allData = filterMixRecords(raw);
+  const ignored = countThirdPartyRows(raw);
+  const status = $('mapStatus');
+  if(status) status.innerHTML = `<strong>Filtro ativo:</strong> somente veículos MIX. ${ignored} ocorrência(s) de terceiros foram deixadas fora da análise.`;
+  const dts = allData.map(r=>onlyDate(r.dataOcorrencia||r.dataEvento)).filter(Boolean);
+  if(!dts.length) { filteredData = []; render(); return; }
+  const max = new Date(Math.max(...dts)); const min = new Date(Math.min(...dts));
+  $('startDate').value = dateKey(max || min); $('endDate').value = dateKey(max || min); $('headerDate').textContent = dateBR(max || min);
+  applyFilter();
+}
+function applyFilter() {
+  const s = $('startDate').value ? new Date($('startDate').value+'T00:00:00') : null;
+  const e = $('endDate').value ? new Date($('endDate').value+'T23:59:59') : null;
+  filteredData = allData.filter(r=>{ const d=onlyDate(r.dataOcorrencia || r.dataEvento); return d && (!s || d>=s) && (!e || d<=e); });
+  render();
+}
+function groupBy(arr, keyFn) { return arr.reduce((acc,item)=>{ const k=keyFn(item)||'Não informado'; (acc[k] ||= []).push(item); return acc; }, {}); }
+function mostCommon(arr, fn) { const g=groupBy(arr, fn); return Object.entries(g).sort((a,b)=>b[1].length-a[1].length)[0]?.[0] || '-'; }
+function render() { renderKPIs(); renderCharts(); renderDriverRanking(); renderTables(); renderScaleTable(); renderMap(); renderAlerts(); renderLinkageWarning(); }
+function renderLinkageWarning() {
+  const el = $('linkageWarning');
+  if(!el) return;
+  const total = filteredData.length;
+  if(!total) { el.innerHTML = ''; return; }
+  const semVinculo = filteredData.filter(r => driverGroupKey(r) === 'Sem vínculo').length;
+  const pct = (semVinculo/total)*100;
+  if(pct < 30) { el.innerHTML = ''; return; }
+  const vehiclesAffected = [...new Set(filteredData.filter(r => driverGroupKey(r)==='Sem vínculo').map(r=>r.veiculo))];
+  el.innerHTML = `<div class="linkage-warning">
+    <div class="lw-icon">!</div>
+    <div>
+      <div class="lw-title">${pct.toFixed(0)}% das ocorrências no período sem motorista vinculado (${semVinculo} de ${total})</div>
+      <div class="lw-desc">Veículo(s) sem correspondência na escala importada: ${vehiclesAffected.join(', ')}. Isso normalmente significa que a escala do dia não cobre esses veículos (rota longa, veículo fora do fluxo diário local) — não que o motorista não existe. Importe a escala correta desses veículos ou confirme que eles não são cobertos por esse tipo de escala.</div>
+    </div>
+  </div>`;
+}
+function renderKPIs() {
+  const total=filteredData.length, abertas=filteredData.filter(isOpen).length, concl=filteredData.filter(r=>statusType(r.status)==='Concluído').length;
+  const veic=new Set(filteredData.map(r=>r.veiculo).filter(Boolean)).size;
+  const regra=mostCommon(filteredData, r=>r.regra).replace('MIX EXCESSO DE VELOCIDADE 90 KM','Velocidade 90 KM');
+  const openTimes = filteredData.filter(isOpen).map(r=>timeOpenMinutes(r.tempoAberto)).filter(v=>v!==null);
+  const maxOpen = openTimes.length ? Math.max(...openTimes) : NaN;
+  const inter=filteredData.map(firstInteractionMinutes).filter(v=>v!==null); const avg=inter.length? inter.reduce((a,b)=>a+b,0)/inter.length:null;
+  $('kTotal').textContent=total; $('kAbertas').textContent=abertas; $('kConcluidas').textContent=concl; $('kVeiculos').textContent=veic;
+  $('kRegra').textContent=regra==='-'?'-':regra; $('kMaxAberto').textContent=isNaN(maxOpen)?'-':minsToLabel(maxOpen); $('kInteracao').textContent=avg===null?'-':minsToLabel(avg);
+  const sd=$('startDate').value?dateBR(new Date($('startDate').value+'T00:00:00')):'início'; const ed=$('endDate').value?dateBR(new Date($('endDate').value+'T00:00:00')):'fim';
+  $('kPeriodo').textContent=`${sd} a ${ed}`; $('headerDate').textContent = sd===ed ? sd : `${sd} – ${ed}`;
+}
+function renderCharts() {
+  const byVehicle = Object.entries(groupBy(filteredData, r=>r.veiculo)).sort((a,b)=>b[1].length-a[1].length);
+  const labels=byVehicle.map(([k])=>k), vals=byVehicle.map(([,v])=>v.length), opens=byVehicle.map(([,v])=>v.filter(isOpen).length);
+  if(chartVeiculos) chartVeiculos.destroy();
+  chartVeiculos = new Chart($('chartVeiculos'), { type:'bar', data:{ labels, datasets:[{label:'Ocorrências', data:vals, borderRadius:6}, {label:'Abertas', data:opens, borderRadius:6}] }, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}}, scales:{y:{beginAtZero:true,ticks:{precision:0}}} } });
+  const abertas=filteredData.filter(isOpen).length, concl=filteredData.filter(r=>statusType(r.status)==='Concluído').length, outros=filteredData.length-abertas-concl;
+  if(chartStatus) chartStatus.destroy();
+  chartStatus = new Chart($('chartStatus'), { type:'doughnut', data:{ labels:['Abertas','Concluídas','Outros'], datasets:[{data:[abertas,concl,outros]}] }, options:{responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{legend:{position:'bottom'}} } });
+  const hours = Array.from({length:24}, (_,i)=>i); const hourCounts=Object.fromEntries(hours.map(h=>[h,0])); filteredData.forEach(r=>{ const d=onlyDate(r.dataEvento||r.dataOcorrencia); if(d) hourCounts[d.getHours()]++; });
+  if(chartHoras) chartHoras.destroy();
+  chartHoras = new Chart($('chartHoras'), { type:'bar', data:{ labels:hours.map(h=>String(h).padStart(2,'0')+'h'), datasets:[{label:'Ocorrências', data:hours.map(h=>hourCounts[h]), borderRadius:6}] }, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{precision:0}}} } });
+  $('vehicleMetrics').innerHTML = byVehicle.slice(0,3).map(([v,rows],i)=>`<div class="metric-row"><span class="metric-name">${i+1}º ${v} · ${summarizeDriversForVehicle(rows, v)} · ${displayDestino(v)}</span><span class="metric-val">${rows.length} ocorr.</span></div>`).join('') || '<div class="metric-row"><span class="metric-name">Sem dados no período</span></div>';
+  $('statusMetrics').innerHTML = `<div class="metric-row"><span class="metric-name">Abertas</span><span class="metric-val" style="color:#dc2626">${abertas}</span></div><div class="metric-row"><span class="metric-name">Concluídas</span><span class="metric-val" style="color:#0e9f6e">${concl}</span></div><div class="metric-row"><span class="metric-name">Taxa tratada</span><span class="metric-val">${filteredData.length?((concl/filteredData.length)*100).toFixed(1):'0.0'}%</span></div>`;
+}
+function renderDriverRanking() {
+  const entries = Object.entries(groupBy(filteredData, r => driverGroupKey(r))).sort((a,b)=>b[1].length-a[1].length);
+  const top = entries.slice(0, 10);
+  const labels = top.map(([driver]) => driver.length > 24 ? driver.slice(0,24) + '…' : driver);
+  const vals = top.map(([,rows]) => rows.length);
+  if(chartMotoristas) chartMotoristas.destroy();
+  chartMotoristas = new Chart($('chartMotoristas'), { type:'bar', data:{ labels, datasets:[{ label:'Ocorrências', data:vals, borderRadius:6 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true,ticks:{precision:0}}} } });
+  $('driverRankingTable').querySelector('tbody').innerHTML = entries.map(([driver,rows],idx)=>{
+    const abertas=rows.filter(isOpen).length, concl=rows.filter(r=>statusType(r.status)==='Concluído').length;
+    const vehicles=Object.entries(groupBy(rows, r=>r.veiculo)).sort((a,b)=>b[1].length-a[1].length).map(([v,rs])=>`${v} (${rs.length})`).join(' / ');
+    const pct = filteredData.length ? ((rows.length/filteredData.length)*100).toFixed(1) : '0.0';
+    return `<tr><td class="bold">${idx+1}º</td><td><div class="driver-name-cell">${driver}${matchTypeNote(rows)}</div><div class="driver-pct">${pct}% das ocorrências do período</div></td><td><div class="vehicle-mini">${vehicles || '-'}</div></td><td class="num"><div class="driver-count">${rows.length}</div></td><td class="num">${abertas}</td><td class="num">${concl}</td><td>${mostCommon(rows,r=>r.regra).replace('MIX EXCESSO DE VELOCIDADE 90 KM','Velocidade 90 KM')}</td><td>${levelBadge(rows)}</td></tr>`;
+  }).join('') || '<tr><td colspan="8">Sem ocorrências no período selecionado.</td></tr>';
+}
+function levelBadge(rows) { const abertas=rows.filter(isOpen).length; if(rows.length>=20 || abertas>=5) return '<span class="badge b-red">CRÍTICO</span>'; if(rows.length>=5 || abertas>0) return '<span class="badge b-orange">ALTO</span>'; return '<span class="badge b-blue">MÉDIO</span>'; }
+function statusBadge(status) { const s=statusType(status); if(s==='Aberto') return '<span class="badge b-red">ABERTO</span>'; if(s==='Concluído') return '<span class="badge b-green">CONCLUÍDO</span>'; return `<span class="badge b-gray">${status||'S/STATUS'}</span>`; }
+function renderTables() {
+  const byVehicle = Object.entries(groupBy(filteredData, r=>r.veiculo)).sort((a,b)=>b[1].length-a[1].length);
+  $('vehicleTable').querySelector('tbody').innerHTML = byVehicle.map(([v,rows])=>{
+    const abertas=rows.filter(isOpen).length, concl=rows.filter(r=>statusType(r.status)==='Concluído').length;
+    const refDate = onlyDate(rows[0]?.dataEvento || rows[0]?.dataOcorrencia);
+    const noteVal = (manualNotes[normVehicle(v)] || '').replace(/"/g,'&quot;');
+    return `<tr><td class="bold">${v}</td><td>${summarizeDriversForVehicle(rows, v)}</td><td class="small-cell">${displayAjudantes(v, refDate)}</td><td class="small-cell">${displayDestino(v, refDate)}<div class="muted-cell">Carga: ${displayCargaERP(v, refDate)}</div></td><td class="num bold">${rows.length}</td><td class="num">${abertas}</td><td class="num">${concl}</td><td>${mostCommon(rows,r=>r.regra).replace('MIX EXCESSO DE VELOCIDADE 90 KM','Velocidade 90 KM')}</td><td>${mostCommon(rows,r=>r.ultimoOperador)||'-'}</td><td>${levelBadge(rows)}</td><td><input type="text" class="manual-note-input" data-vehicle="${v}" value="${noteVal}" placeholder="Ex: retorno de rota, sensor..." style="width:160px;font-size:12px;padding:4px 6px;border:1px solid #d0d5dd;border-radius:4px;"></td></tr>`;
+  }).join('') || '<tr><td colspan="11">Sem ocorrências no período selecionado.</td></tr>';
+  document.querySelectorAll('.manual-note-input').forEach(inp => {
+    inp.addEventListener('change', e => { saveManualNote(e.target.dataset.vehicle, e.target.value); toast('Observação salva para ' + e.target.dataset.vehicle + (SHAREABLE_SNAPSHOT ? ' (só nesta sessão — baixe o HTML compartilhável pra manter)' : '.')); });
+  });
+  $('detailTable').querySelector('tbody').innerHTML = filteredData.slice().sort((a,b)=>(onlyDate(b.dataEvento||b.dataOcorrencia)||0)-(onlyDate(a.dataEvento||a.dataOcorrencia)||0)).map(r=>{
+    const d=onlyDate(r.dataEvento||r.dataOcorrencia);
+    return `<tr><td class="bold">${r.numero}</td><td>${dateTimeBR(d)}</td><td class="bold">${r.veiculo}</td><td>${driverBadgeForOccurrence(r)}</td><td class="small-cell">${displayAjudantesOcorrencia(r)}</td><td class="small-cell">${displayDestinoOcorrencia(r)}<div class="muted-cell">Carga: ${displayCargaERPOcorrencia(r)}</div></td><td>${statusBadge(r.status)}</td><td>${(r.regra||'-').replace('MIX EXCESSO DE VELOCIDADE 90 KM','Velocidade 90 KM')}</td><td>${r.tempoAberto||'-'}</td><td>${r.dataPrimeiraInteracao||'-'}</td><td class="num">${r.latitude?.toFixed(6)||'-'}</td><td class="num">${r.longitude?.toFixed(6)||'-'}</td></tr>`;
+  }).join('') || '<tr><td colspan="12">Sem ocorrências no período selecionado.</td></tr>';
+}
+function renderScaleTable() {
+  const total=scaleData.length;
+  const veh=uniqueNonEmpty(scaleData.map(r=>r.veiculo)).length;
+  const mot=uniqueNonEmpty(scaleData.map(r=>r.motorista)).length;
+  const semMotorista=scaleData.filter(r=>!r.motorista).length;
+  $('scaleSummary').innerHTML = `<div class="scale-mini"><small>Cargas escaladas</small><strong>${total}</strong></div><div class="scale-mini"><small>Veículos vinculados</small><strong>${veh}</strong></div><div class="scale-mini"><small>Motoristas</small><strong>${mot}</strong></div><div class="scale-mini"><small>Sem motorista</small><strong>${semMotorista}</strong></div>`;
+  $('scaleTable').querySelector('tbody').innerHTML = scaleData.slice().sort((a,b)=>normVehicle(a.veiculo).localeCompare(normVehicle(b.veiculo))).map(r=>{
+    const ajuda=uniqueNonEmpty([r.ajudante1,r.ajudante2,r.ajudante3,r.ajudante4]).join(' / ') || '-';
+    return `<tr><td>${r.data || '-'}</td><td class="bold">${r.veiculo || '-'}</td><td>${r.motorista ? `<span class="driver-chip">${r.motorista}</span>` : '<span class="driver-chip warn">Sem motorista</span>'}</td><td class="small-cell">${ajuda}</td><td class="small-cell">${r.destino || '-'}</td><td>${r.cargaERP || '-'}</td><td class="num">${r.entregas || '-'}</td><td class="num">${r.pesoKG || '-'}</td></tr>`;
+  }).join('');
+}
+
+function renderMap() {
+  const pts = filteredData.filter(r=>r.latitude!==null && r.longitude!==null);
+  const mapDiv = $('map');
+  const status = $('mapStatus');
+  const mixVehicles = new Set(filteredData.map(r=>r.veiculo).filter(Boolean)).size;
+  if(status) status.innerHTML = `<strong>Mapa atualizado:</strong> ${pts.length} ponto(s) com coordenada no período filtrado, ${mixVehicles} veículo(s) MIX com ocorrência. Motoristas vinculados pela escala; terceiros excluídos.`;
+  if(typeof L === 'undefined') { renderSvgFallback(pts); return; }
+  if(!map) { map = L.map('map', { zoomControl:true }); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:18, attribution:'© OpenStreetMap' }).addTo(map); }
+  if(mapLayer) map.removeLayer(mapLayer); if(lineLayer) map.removeLayer(lineLayer);
+  mapLayer = L.layerGroup().addTo(map); lineLayer = L.layerGroup().addTo(map);
+  const bounds=[];
+  const byVehicle = groupBy(pts, r=>r.veiculo);
+  Object.entries(byVehicle).forEach(([v,rows])=>{
+    const ordered=rows.slice().sort((a,b)=>(onlyDate(a.dataEvento||a.dataOcorrencia)||0)-(onlyDate(b.dataEvento||b.dataOcorrencia)||0));
+    const latlngs=[];
+    ordered.forEach(r=>{
+      const ll=[r.latitude, r.longitude]; latlngs.push(ll); bounds.push(ll);
+      const color=isOpen(r)?'#dc2626':'#0e9f6e';
+      const marker=L.circleMarker(ll, { radius:isOpen(r)?7:5, color, fillColor:color, fillOpacity:.85, weight:2 }).addTo(mapLayer);
+      marker.bindPopup(`<strong>${r.veiculo}</strong><br>Motorista: ${displayMotoristaOcorrencia(r)}<br>Destino: ${displayDestinoOcorrencia(r)}<br>Vínculo: ${getScaleMatchType(r.veiculo, onlyDate(r.dataEvento||r.dataOcorrencia))}<br>${statusType(r.status)} · ${(r.regra||'').replace('MIX EXCESSO DE VELOCIDADE 90 KM','Velocidade 90 KM')}<br>${dateTimeBR(onlyDate(r.dataEvento||r.dataOcorrencia))}`);
+    });
+    if(latlngs.length>1) L.polyline(latlngs, { color:'#1557d7', weight:2, opacity:.45 }).addTo(lineLayer);
+  });
+  if(bounds.length) map.fitBounds(bounds, {padding:[22,22]}); else map.setView([-10.18,-48.33], 6);
+  setTimeout(()=>map.invalidateSize(), 120);
+}
+function renderSvgFallback(pts) {
+  const div=$('map'); if(!pts.length) { div.innerHTML='<div class="map-fallback">Sem coordenadas no período filtrado.</div>'; return; }
+  const lats=pts.map(p=>p.latitude), lons=pts.map(p=>p.longitude); const minLat=Math.min(...lats), maxLat=Math.max(...lats), minLon=Math.min(...lons), maxLon=Math.max(...lons);
+  const pad=30, w=900, h=410;
+  const point = p => { const x=pad+(p.longitude-minLon)/(maxLon-minLon||1)*(w-pad*2); const y=h-pad-(p.latitude-minLat)/(maxLat-minLat||1)*(h-pad*2); return [x,y]; };
+  div.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" style="background:#e8eef7;border-radius:12px"><text x="20" y="28" fill="#64748b" font-size="13" font-weight="700">Mapa simplificado por latitude/longitude</text>${pts.map(p=>{const [x,y]=point(p); return `<circle cx="${x}" cy="${y}" r="${isOpen(p)?7:5}" fill="${isOpen(p)?'#dc2626':'#0e9f6e'}"><title>${p.veiculo}</title></circle>`}).join('')}</svg>`;
+}
+function describeDriversForAlert(rows, vehicle) {
+  const summary = summarizeDriversForVehicle(rows, vehicle);
+  if(summary === 'Sem vínculo' || summary.startsWith('Sem vínculo (')) {
+    return `sem motorista vinculado pela escala (${rows.length} ocorrência(s) sem correspondência na importação)`;
+  }
+  return `motorista(s) vinculado(s): ${summary}`;
+}
+function renderAlerts() {
+  const byVehicle = Object.entries(groupBy(filteredData, r=>r.veiculo)).sort((a,b)=>b[1].length-a[1].length);
+  const top=byVehicle[0]; const openRows=filteredData.filter(isOpen); const openByVehicle=Object.entries(groupBy(openRows, r=>r.veiculo)).sort((a,b)=>b[1].length-a[1].length);
+  const avgInter=filteredData.map(firstInteractionMinutes).filter(v=>v!==null); const avg=avgInter.length?avgInter.reduce((a,b)=>a+b,0)/avgInter.length:null;
+  const alerts=[];
+  if(top) alerts.push(['1',`Maior reincidência: ${top[0]}`,`${top[0]} concentra ${top[1].length} ocorrências no período. ${describeDriversForAlert(top[1], top[0]).replace(/^m/,'M')}. Rota: ${displayDestino(top[0])}. Priorizar orientação e acompanhamento do condutor em rota.`]);
+  if(openByVehicle[0]) alerts.push(['2',`Ocorrências abertas: ${openRows.length}`,`${openByVehicle[0][0]} possui ${openByVehicle[0][1].length} ocorrência(s) aberta(s). ${describeDriversForAlert(openByVehicle[0][1], openByVehicle[0][0]).replace(/^m/,'M')}. Acompanhar até encerramento e registrar 1ª interação para reduzir tempo aberto.`]);
+  if(avg!==null) alerts.push(['3','Tempo de 1ª interação',`Média atual de 1ª interação nas ocorrências tratadas: ${minsToLabel(avg)}. Manter monitoramento para evitar acúmulo de eventos sem tratativa.`]);
+  if(!alerts.length) alerts.push(['1','Sem dados no período','Importe ou selecione um período com ocorrências para gerar alertas gerenciais.']);
+  $('alerts').innerHTML=alerts.map(([n,t,d])=>`<div class="alert-box"><div class="alert-num">${n}</div><div><div class="alert-title">${t}</div><div class="alert-desc">${d}</div></div></div>`).join('');
+}
+
+function normalizeImportedScaleRows(rows) {
+  let headerIdx = rows.findIndex(row => row.some(c=>normText(c)==='veiculo' || normText(c)==='veiculo') && row.some(c=>normText(c)==='motorista'));
+  if(headerIdx < 0) headerIdx = rows.findIndex(row => row.some(c=>normText(c)==='carga erp') && row.some(c=>normText(c)==='destino'));
+  if(headerIdx < 0) headerIdx = 0;
+  const headers = rows[headerIdx].map(h => String(h ?? '').trim());
+  const out=[];
+  for(let i=headerIdx+1;i<rows.length;i++) {
+    const row=rows[i]; if(!row || !row.length) continue;
+    const obj={}; headers.forEach((h,j)=>obj[h]=row[j]);
+    const r=normalizeScaleRow(obj);
+    if(r.veiculo && !String(r.veiculo).toLowerCase().startsWith('total')) out.push(r);
+  }
+  return out;
+}
+async function handleScaleImport(file) {
+  if(!file) return;
+  if(typeof XLSX === 'undefined') { toast('Biblioteca de importação não carregou. Verifique a internet para importar XLS/XLSX.'); return; }
+  const data = await file.arrayBuffer();
+  const wb = XLSX.read(data, { type:'array', cellDates:false });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false });
+  const imported = normalizeImportedScaleRows(rows).map(normalizeScaleRow).filter(r=>r.veiculo);
+  const current = (SHAREABLE_SNAPSHOT ? scaleData : (JSON.parse(localStorage.getItem(STORAGE_SCALE_KEY) || 'null') || ESCALA_DATA)).map(normalizeScaleRow).filter(r=>r.veiculo);
+  const mergedMap = new Map();
+  [...current, ...imported].forEach(r => mergedMap.set(scaleKey(r), r));
+  const merged = [...mergedMap.values()];
+  if(!SHAREABLE_SNAPSHOT) localStorage.setItem(STORAGE_SCALE_KEY, JSON.stringify(merged));
+  scaleData = merged;
+  buildScaleIndex();
+  render();
+  toast(`${imported.length} vínculo(s) importado(s). Escala acumulada: ${merged.length} registro(s).`);
+}
+function normalizeImportedSheetRows(rows) {
+  // rows is array of arrays from SheetJS. Find header row by Número + Veículo.
+  let headerIdx = rows.findIndex(row => row.some(c=>normText(c)==='numero') && row.some(c=>normText(c)==='veiculo'));
+  if(headerIdx < 0) headerIdx = 0;
+  const headers = rows[headerIdx].map(h => String(h ?? '').trim());
+  const out=[];
+  for(let i=headerIdx+1;i<rows.length;i++) {
+    const row=rows[i]; if(!row || !row.length) continue;
+    const obj={}; headers.forEach((h,j)=>obj[h]=row[j]);
+    const r=normalizeRow(obj);
+    if(r.numero && !String(r.numero).toLowerCase().startsWith('total')) out.push(r);
+  }
+  return out;
+}
+async function handleImport(file) {
+  if(!file) return;
+  if(typeof XLSX === 'undefined') { toast('Biblioteca de importação não carregou. Verifique a internet para importar XLS/XLSX.'); return; }
+  const data = await file.arrayBuffer();
+  const wb = XLSX.read(data, { type:'array', cellDates:false });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false });
+  const importedRaw = normalizeImportedSheetRows(rows);
+  const imported = filterMixRecords(importedRaw);
+  const ignored = importedRaw.length - imported.length;
+  const stored = SHAREABLE_SNAPSHOT ? allData : JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
+  const merged = dedupe([...stored, ...imported]);
+  if(!SHAREABLE_SNAPSHOT) localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+  allData = filterMixRecords(dedupe(SHAREABLE_SNAPSHOT ? merged : [...BASE_DATA, ...merged]));
+  const importedDates = imported.map(r=>onlyDate(r.dataOcorrencia||r.dataEvento)).filter(Boolean);
+  if(importedDates.length) { const max = new Date(Math.max(...importedDates)); $('startDate').value=dateKey(max); $('endDate').value=dateKey(max); }
+  applyFilter(); toast(`${imported.length} ocorrência(s) MIX importada(s). ${ignored} terceiro(s) ignorado(s). Base MIX consolidada: ${allData.length} registro(s).`);
+}
+function exportCSV() {
+  const cols=['numero','veiculo','motoristaVinculado','tipoVinculo','ajudantesVinculados','destinoEscala','cargaERP','rotaMonitor','status','dataOcorrencia','dataEvento','tempoAberto','regra','latitude','longitude','ultimoOperador','dataPrimeiraInteracao'];
+  const source = filteredData.length ? filteredData : allData;
+  const rows = source.map(r => {
+    const refDate = onlyDate(r.dataEvento || r.dataOcorrencia);
+    return {
+      ...r,
+      motoristaVinculado: displayMotorista(r.veiculo, refDate),
+      tipoVinculo: getScaleMatchType(r.veiculo, refDate),
+      ajudantesVinculados: displayAjudantes(r.veiculo, refDate),
+      destinoEscala: displayDestino(r.veiculo, refDate),
+      cargaERP: displayCargaERP(r.veiculo, refDate)
+    };
+  });
+  const csv=[cols.join(';'), ...rows.map(r=>cols.map(c=>`"${String(r[c]??'').replace(/"/g,'""')}"`).join(';'))].join('\n');
+  const blob=new Blob([csv], {type:'text/csv;charset=utf-8;'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='ocorrencias_monitoramento_com_motorista.csv'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+function escapeRegExp(str) { return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function exportShareableHTML() {
+  const fullHtml = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+  const embeddedData = JSON.stringify(allData);
+  const embeddedScale = JSON.stringify(scaleData);
+  let snapshot = fullHtml;
+  const before = snapshot;
+  snapshot = snapshot.replace(/const BASE_DATA = \[[\s\S]*?\];\nconst STORAGE_KEY/, `const BASE_DATA = ${embeddedData};\nconst STORAGE_KEY`);
+  const okData = snapshot !== before;
+  const beforeScale = snapshot;
+  snapshot = snapshot.replace(/const ESCALA_DATA = \[[\s\S]*?\];\nconst ROUTE_MAP/, `const ESCALA_DATA = ${embeddedScale};\nconst ROUTE_MAP`);
+  const okScale = snapshot !== beforeScale;
+  const beforeFlag = snapshot;
+  snapshot = snapshot.replace(/const SHAREABLE_SNAPSHOT = (true|false);/, 'const SHAREABLE_SNAPSHOT = true;');
+  const okFlag = snapshot !== beforeFlag;
+  if(!okData || !okScale || !okFlag) {
+    alert('Falha ao gerar o HTML compartilhável: o padrão do arquivo mudou e a substituição de dados não funcionou (BASE_DATA: ' + (okData?'ok':'FALHOU') + ', ESCALA_DATA: ' + (okScale?'ok':'FALHOU') + ', SHAREABLE_SNAPSHOT: ' + (okFlag?'ok':'FALHOU') + '). NÃO envie este arquivo — avise quem mantém o painel.');
+    return;
+  }
+  const blob = new Blob([snapshot], {type:'text/html;charset=utf-8;'});
+  const a = document.createElement('a');
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  a.href = URL.createObjectURL(blob);
+  a.download = `painel_ocorrencias_monitoramento_compartilhavel_${stamp}.html`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('HTML compartilhável gerado com a base atual embutida.');
+}
+
+$('fileInput').addEventListener('change', e=>handleImport(e.target.files[0]));
+$('scaleInput').addEventListener('change', e=>handleScaleImport(e.target.files[0]));
+function sendOccurrencesToSheet() {
+  const source = filteredData.length ? filteredData : allData;
+  const rows = source.map(r => {
+    const refDate = onlyDate(r.dataEvento || r.dataOcorrencia);
+    return [
+      onlyDate(r.dataEvento || r.dataOcorrencia) ? dateTimeBR(refDate).split(' ')[0] : '',
+      r.numero,
+      r.veiculo,
+      (r.regra||'').replace('MIX EXCESSO DE VELOCIDADE 90 KM','Velocidade 90 KM'),
+      displayMotorista(r.veiculo, refDate),
+      getScaleMatchType(r.veiculo, refDate),
+      statusType(r.status)
+    ];
+  });
+  sendRowsToSheet('Ocorrencias', rows);
+}
+function sendScaleToSheet() {
+  const rows = scaleData.map(r => [r.cargaERP||'', r.motorista||'', r.veiculo||'', r.data||'', r.destino||'', r.entregas||'', r.frota||'']);
+  sendRowsToSheet('Escala', rows);
+}
+$('sendSheetBtn').addEventListener('click', sendOccurrencesToSheet);
+$('sendScaleSheetBtn').addEventListener('click', sendScaleToSheet);
+$('todayBtn').addEventListener('click', ()=>{ const dts=allData.map(r=>onlyDate(r.dataOcorrencia||r.dataEvento)).filter(Boolean); const max=new Date(Math.max(...dts)); $('startDate').value=dateKey(max); $('endDate').value=dateKey(max); applyFilter(); });
+function exportCSVConsolidado() {
+  const source = filteredData.length ? filteredData : allData;
+  const rows = source.map(r => {
+    const refDate = onlyDate(r.dataEvento || r.dataOcorrencia);
+    return {
+      data: onlyDate(r.dataEvento || r.dataOcorrencia) ? dateTimeBR(refDate).split(' ')[0] : '',
+      numero: r.numero,
+      veiculo: r.veiculo,
+      tipo: (r.regra||'').replace('MIX EXCESSO DE VELOCIDADE 90 KM','Velocidade 90 KM'),
+      motorista: displayMotorista(r.veiculo, refDate),
+      vinculo: getScaleMatchType(r.veiculo, refDate),
+      status: statusType(r.status)
+    };
+  });
+  const cols = ['data','numero','veiculo','tipo','motorista','vinculo','status'];
+  const csv=[cols.join(';'), ...rows.map(r=>cols.map(c=>`"${String(r[c]??'').replace(/"/g,'""')}"`).join(';'))].join('\n');
+  const blob=new Blob([csv], {type:'text/csv;charset=utf-8;'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='ocorrencias_para_consolidado.csv'; a.click(); URL.revokeObjectURL(a.href);
+  toast('CSV gerado no formato da aba mensal — cole a partir da linha 4.');
+}
+$('exportBtn').addEventListener('click', exportCSV);
+$('exportConsolidadoBtn').addEventListener('click', exportCSVConsolidado);
+function exportResumoDia() {
+  const source = filteredData.length ? filteredData : allData;
+  if (!source.length) { alert('Nenhuma ocorrência no período/dia selecionado.'); return; }
+  const dates = [...new Set(source.map(r => onlyDate(r.dataEvento || r.dataOcorrencia)).filter(Boolean).map(d => dateTimeBR(d).split(' ')[0]))];
+  const label = dates.length === 1 ? dates[0] : `${dates[0]} a ${dates[dates.length-1]}`;
+  const abertas = source.filter(isOpen).length;
+  const concl = source.filter(r => statusType(r.status)==='Concluído').length;
+  const porVeiculo = Object.entries(groupBy(source, r=>r.veiculo)).sort((a,b)=>b[1].length-a[1].length);
+  const porMotorista = Object.entries(groupBy(source, r=>driverGroupKey(r))).sort((a,b)=>b[1].length-a[1].length);
+  const semVinculoCount = source.filter(r => driverGroupKey(r) === 'Sem vínculo').length;
+
+  const veiculoRows = porVeiculo.map(([v,rows]) => `<tr><td>${v}</td><td class="c">${rows.length}</td><td>${displayDestino(v, onlyDate(rows[0].dataEvento||rows[0].dataOcorrencia))}</td></tr>`).join('');
+  const motoristaRows = porMotorista.map(([m,rows]) => {
+    const tag = matchTypeNote(rows);
+    const warn = m === 'Sem vínculo' ? ' style="color:#b91c1c;font-weight:700;"' : '';
+    return `<tr><td${warn}>${m}${tag}</td><td class="c">${rows.length}</td></tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Resumo do Dia — ${label}</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#f2f4f6;margin:0;padding:24px;color:#1a1a1a;}
+    .wrap{max-width:760px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08);}
+    .head{background:#003d5c;color:#fff;padding:20px 24px;}
+    .head h1{margin:0;font-size:20px;}
+    .head .sub{font-size:12px;color:#cfe0e9;margin-top:4px;}
+    .kpis{display:flex;gap:12px;padding:18px 24px;flex-wrap:wrap;}
+    .kpi{flex:1;min-width:110px;background:#f2f4f6;border-radius:8px;padding:12px;text-align:center;}
+    .kpi .n{font-size:22px;font-weight:800;color:#003d5c;}
+    .kpi .l{font-size:10.5px;color:#666;text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+    .section{padding:0 24px 20px;}
+    .section h2{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:#003d5c;border-bottom:2px solid #003d5c;padding-bottom:6px;margin-bottom:8px;}
+    table{width:100%;border-collapse:collapse;font-size:13px;}
+    td,th{padding:6px 8px;border-bottom:1px solid #e5e5e5;text-align:left;}
+    td.c{text-align:center;}
+    .approx-tag{display:inline-block;font-size:9px;font-weight:800;text-transform:uppercase;color:#9a3412;background:#ffedd5;border-radius:4px;padding:1px 5px;margin-left:4px;}
+    .warn-banner{margin:0 24px 16px;background:#fff1f1;border:1px solid #fecaca;border-left:4px solid #b91c1c;border-radius:6px;padding:10px 14px;font-size:12.5px;color:#7f1d1d;}
+    .note{padding:0 24px 20px;font-size:11px;color:#888;}
+    @media print{body{background:#fff;padding:0;}.wrap{box-shadow:none;}}
+  </style></head><body>
+  <div class="wrap">
+    <div class="head"><h1>Resumo do Dia — ${label}</h1><div class="sub">MIX Alimentos · Monitoramento de Ocorrências</div></div>
+    <div class="kpis">
+      <div class="kpi"><div class="n">${source.length}</div><div class="l">Total</div></div>
+      <div class="kpi"><div class="n">${abertas}</div><div class="l">Abertas</div></div>
+      <div class="kpi"><div class="n">${concl}</div><div class="l">Concluídas</div></div>
+      <div class="kpi"><div class="n">${porVeiculo.length}</div><div class="l">Veículos</div></div>
+    </div>
+    ${semVinculoCount > 0 ? `<div class="warn-banner">${semVinculoCount} ocorrência(s) sem motorista vinculado — escala do dia pode estar incompleta.</div>` : ''}
+    <div class="section"><h2>Por veículo</h2><table><tr><th>Veículo</th><th class="c">Ocorrências</th><th>Rota</th></tr>${veiculoRows}</table></div>
+    <div class="section"><h2>Por motorista</h2><table><tr><th>Motorista</th><th class="c">Ocorrências</th></tr>${motoristaRows}</table></div>
+    <div class="note">Gerado em ${new Date().toLocaleString('pt-BR')} a partir do painel de monitoramento. "aprox." = vínculo por escala de outro dia, não confirmado para a data exata.</div>
+  </div>
+  </body></html>`;
+
+  const blob = new Blob([html], {type:'text/html;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `resumo_dia_${label.replace(/\//g,'-')}.html`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Resumo do dia gerado — abra o arquivo e use Imprimir > Salvar como PDF, ou printe a tela.');
+}
+const SHEET_ID_READ = "1FRejaGEVpnW7_gNZeoDIOEC_gKXeJyLXuKDss0r7zME";
+// TROQUE pelos gids reais de cada aba (veja a URL ao clicar em cada aba na planilha: ...#gid=NUMERO)
+const OCORRENCIAS_GID = "1670815600";
+const ESCALA_GID = "194844070";
+let histData = [];
+
+function csvUrl(gid) {
+  return `https://docs.google.com/spreadsheets/d/${SHEET_ID_READ}/gviz/tq?tqx=out:csv&gid=${gid}`;
+}
+
+function parseCsvText(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.length);
+  return lines.map(line => {
+    const cells = []; let cur=''; let inQ=false;
+    for (let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'){ if(inQ && line[i+1]==='"'){ cur+='"'; i++; } else inQ=!inQ; }
+      else if(c===',' && !inQ){ cells.push(cur); cur=''; }
+      else cur+=c;
+    }
+    cells.push(cur);
+    return cells;
+  });
+}
+
+async function loadHistorico() {
+  const statusEl = $('histStatus');
+  statusEl.textContent = 'Carregando...';
+  try {
+    const resp = await fetch(csvUrl(OCORRENCIAS_GID));
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    let text = await resp.text();
+    text = text.replace(/^\ufeff/, '');
+    const rows = parseCsvText(text);
+    // Lê por POSIÇÃO, não por nome de cabeçalho — o nome já provou ser frágil
+    // (BOM, maiúscula/minúscula, espaço). A ordem das colunas é fixa e conhecida:
+    // Data, Número, Veículo, Tipo, Motorista, Vínculo, Status.
+    histData = rows.slice(1).filter(r => r.length >= 7 && r[1]).map(r => ({
+      data: (r[0]||'').trim(),
+      numero: (r[1]||'').trim(),
+      veiculo: (r[2]||'').trim(),
+      tipo: (r[3]||'').trim(),
+      motorista: (r[4]||'').trim(),
+      vinculo: (r[5]||'').trim(),
+      status: (r[6]||'').trim()
+    }));
+    statusEl.textContent = `${histData.length} registro(s) carregado(s) da planilha.`;
+    renderHistorico();
+  } catch(err) {
+    statusEl.textContent = 'Falha ao carregar: ' + err.message + ' (confira se a planilha está compartilhada como "qualquer pessoa com o link pode visualizar", e se o GID está certo).';
+  }
+}
+
+function renderHistorico() {
+  const start = $('histStart').value; // yyyy-mm-dd
+  const end = $('histEnd').value;
+  const fv = $('histFilterVeiculo').value.trim().toUpperCase();
+  const fm = $('histFilterMotorista').value.trim().toUpperCase();
+  const ft = $('histFilterTipo').value.trim().toUpperCase();
+
+  const toISO = (br) => { // "dd/mm/yyyy" -> "yyyy-mm-dd" pra comparar com <input type=date>
+    const m = String(br||'').match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+  };
+
+  let filtered = histData.filter(r => {
+    const iso = toISO(r.data);
+    if(start && iso && iso < start) return false;
+    if(end && iso && iso > end) return false;
+    if(fv && !(r.veiculo||'').toUpperCase().includes(fv)) return false;
+    if(fm && !(r.motorista||'').toUpperCase().includes(fm)) return false;
+    if(ft && !(r.tipo||'').toUpperCase().includes(ft)) return false;
+    return true;
+  });
+
+  // Deduplica por "número" — a planilha só acrescenta linhas, nunca substitui.
+  // NÃO assume que a última enviada é a melhor: se a página recarregou entre os dois
+  // envios, a escala pode ter se perdido (SHAREABLE_SNAPSHOT não persiste sozinho),
+  // e o reenvio mais recente pode ter MENOS informação, não mais. Prioriza por
+  // qualidade de vínculo, não por ordem de chegada.
+  const vinculoRank = (v) => {
+    v = (v||'').toLowerCase();
+    if(v === 'data exata') return 0;
+    if(v === 'escala anterior' || v === 'escala próxima') return 1;
+    if(v.includes('sem')) return 3;
+    return 2;
+  };
+  const dedupMap = new Map();
+  filtered.forEach(r => {
+    if(!r.numero) return;
+    const existing = dedupMap.get(r.numero);
+    if(!existing || vinculoRank(r.vinculo) < vinculoRank(existing.vinculo)) {
+      dedupMap.set(r.numero, r);
+    }
+  });
+  const duplicatesRemoved = filtered.length - dedupMap.size;
+  filtered = [...dedupMap.values()];
+
+  // KPIs: período atual (filtrado) vs período anterior de mesma duração, pra comparação
+  const total = filtered.length;
+  const abertas = filtered.filter(r => (r.status||'').toLowerCase().includes('abert')).length;
+  const semVinculo = filtered.filter(r => (r.vinculo||'').toLowerCase().includes('sem')).length;
+  const veiculosUnicos = new Set(filtered.map(r=>r.veiculo)).size;
+
+  $('histKpiGrid').innerHTML = `
+    <div class="kpi"><div class="num">${total}</div><div class="label">Ocorrências no período</div></div>
+    <div class="kpi"><div class="num">${abertas}</div><div class="label">Abertas</div></div>
+    <div class="kpi"><div class="num">${veiculosUnicos}</div><div class="label">Veículos distintos</div></div>
+    <div class="kpi ${semVinculo>0?'warn':''}"><div class="num">${semVinculo}</div><div class="label">Sem vínculo</div></div>
+  `;
+
+  $('histTable').querySelector('tbody').innerHTML = filtered.slice(0,500).map(r => `
+    <tr><td>${r.data||''}</td><td>${r.numero||''}</td><td class="bold">${r.veiculo||''}</td><td>${r.tipo||''}</td><td>${r.motorista||''}</td><td>${r.vinculo||''}</td><td>${r.status||''}</td></tr>
+  `).join('') || '<tr><td colspan="7">Nenhum registro no filtro atual.</td></tr>';
+  if(filtered.length > 500) $('histStatus').textContent += ' (mostrando as primeiras 500 linhas filtradas)';
+  if(duplicatesRemoved > 0) $('histStatus').textContent += ` · ${duplicatesRemoved} linha(s) duplicada(s) na planilha (mesmo número, reenviado mais de uma vez) — mantida a versão com melhor vínculo, não necessariamente a mais recente.`;
+}
+
+$('exportResumoDiaBtn').addEventListener('click', exportResumoDia);
+$('histLoadBtn').addEventListener('click', loadHistorico);
+['histStart','histEnd','histFilterVeiculo','histFilterMotorista','histFilterTipo'].forEach(id => {
+  $(id).addEventListener('input', renderHistorico);
+});
+$('shareBtn').addEventListener('click', exportShareableHTML);
+$('clearBtn').addEventListener('click', ()=>{ if(confirm('Limpar apenas as importações desta sessão/navegador? A base embutida no HTML continuará preservada.')) { if(!SHAREABLE_SNAPSHOT) { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(STORAGE_SCALE_KEY); } allData = []; filteredData = []; scaleData = []; loadData(); toast('Importações locais limpas. A base embutida no HTML foi recarregada. A visão continua considerando somente veículos MIX.'); } });
+loadData();
+</script>
+
+
+</body></html>
