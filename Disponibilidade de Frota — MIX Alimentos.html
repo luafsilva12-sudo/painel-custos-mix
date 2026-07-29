@@ -1,0 +1,2000 @@
+<!DOCTYPE html>
+<!-- saved from url=(0100)file:///C:/Users/luana.ferreira/Downloads/disponibilidade_frota_4_planilhas_capacidade_v9%20(1).html -->
+<html lang="pt-BR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Disponibilidade de Frota — MIX Alimentos</title>
+<style>
+  :root{
+    --bg:#12181c;
+    --panel:#1a2228;
+    --panel-2:#212b32;
+    --line:#2c3941;
+    --text:#e8edf0;
+    --muted:#8ba0ab;
+    --disp:#3ecf8e;
+    --rota:#5b9cf0;
+    --escalado:#e0b84a;
+    --manut:#e0574a;
+    --fora:#8b6bd8;
+    --retorno:#e08a3e;
+    --mono: "SF Mono","Consolas","Menlo",monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Arial, Helvetica, sans-serif;}
+  body{min-height:100vh;padding:20px;}
+  .wrap{max-width:1500px;margin:0 auto;}
+
+  header{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:18px;border-bottom:2px solid var(--line);padding-bottom:14px;}
+  header h1{font-size:22px;margin:0 0 4px 0;letter-spacing:.3px;}
+  header .sub{color:var(--muted);font-size:13px;font-family:var(--mono);}
+  header .clock{font-family:var(--mono);font-size:13px;color:var(--muted);text-align:right;}
+  header .clock b{color:var(--text);font-size:15px;}
+
+  .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px;position:relative;overflow:hidden;cursor:pointer;transition:transform .12s ease, border-color .12s ease;}
+  .card:hover{transform:translateY(-2px);}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;}
+  .card.total::before{background:var(--muted);}
+  .card.disp::before{background:var(--disp);}
+  .card.rota::before{background:var(--rota);}
+  .card.escalado::before{background:var(--escalado);}
+  .card.manut::before{background:var(--manut);}
+  .card.fora::before{background:var(--fora);}
+  .card.retorno::before{background:var(--retorno);}
+  .card .n{font-size:26px;font-weight:700;font-family:var(--mono);line-height:1;}
+  .card .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-top:6px;}
+  .card .peso{font-size:11.5px;color:var(--muted);font-family:var(--mono);margin-top:4px;border-top:1px solid var(--line);padding-top:6px;white-space:nowrap;}
+  .card.active{border-color:var(--text);}
+
+  .controls{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;align-items:center;}
+  .btn-group{display:flex;gap:6px;flex-wrap:wrap;}
+  .btn{background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:20px;cursor:pointer;letter-spacing:.3px;transition:all .12s ease;font-family:Arial,sans-serif;white-space:nowrap;}
+  .btn:hover{border-color:#4a5b64;color:var(--text);}
+  .btn.on{background:var(--text);color:#12181c;border-color:var(--text);}
+  .btn.on.st-DISPONÍVEL{background:var(--disp);border-color:var(--disp);color:#0b1a13;}
+  .btn.on.st-EMROTA{background:var(--rota);border-color:var(--rota);color:#0c1524;}
+  .btn.on.st-ESCALADO{background:var(--escalado);border-color:var(--escalado);color:#251d05;}
+  .btn.on.st-MANUTENÇÃO{background:var(--manut);border-color:var(--manut);color:#280805;}
+  .btn.on.st-DEIXARDEFORA{background:var(--fora);border-color:var(--fora);color:#1a1330;}
+  .btn.on.st-AVALIARRETORNO{background:var(--retorno);border-color:var(--retorno);color:#2b1607;}
+
+  .search{position:relative;}
+  .search input{background:var(--panel);border:1px solid var(--line);color:var(--text);padding:8px 12px 8px 32px;border-radius:20px;font-size:13px;width:220px;}
+  .search input:focus{outline:none;border-color:#4a5b64;}
+  .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.5;}
+
+  .right-actions{margin-left:auto;display:flex;gap:8px;}
+  .action-btn{background:var(--panel-2);color:var(--text);border:1px solid var(--line);font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:20px;cursor:pointer;}
+  .action-btn:hover{border-color:var(--disp);}
+  .action-btn.primary{background:var(--disp);color:#0b1a13;border-color:var(--disp);}
+  .action-btn.primary:hover{filter:brightness(1.08);}
+  .action-btn.danger:hover{border-color:var(--manut);}
+
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  thead th{background:var(--panel-2);text-align:left;padding:10px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--line);position:sticky;top:0;cursor:pointer;user-select:none;white-space:nowrap;}
+  thead th:hover{color:var(--text);}
+  thead th.no-sort{cursor:default;}
+  tbody td{padding:6px 8px;font-size:13px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:var(--panel-2);}
+  .placa{font-family:var(--mono);font-weight:700;letter-spacing:.5px;}
+
+  .cell-input, .cell-select{
+    background:transparent;border:1px solid transparent;color:var(--text);
+    font-size:13px;font-family:inherit;padding:5px 6px;border-radius:4px;width:100%;min-width:70px;
+  }
+  .cell-input:hover, .cell-select:hover{border-color:var(--line);}
+  .cell-input:focus, .cell-select:focus{outline:none;border-color:var(--disp);background:var(--panel-2);}
+  .cell-input.num{width:80px;text-align:right;font-family:var(--mono);}
+  .cell-input.placa-input{font-family:var(--mono);font-weight:700;letter-spacing:.5px;width:95px;}
+  .cell-select{cursor:pointer;}
+  .cell-select.status-DISPONÍVEL{color:var(--disp);}
+  .cell-select.status-EMROTA{color:var(--rota);}
+  .cell-select.status-ESCALADO{color:var(--escalado);}
+  .cell-select.status-MANUTENÇÃO{color:var(--manut);}
+  .cell-select.status-DEIXARDEFORA{color:var(--fora);}
+  .cell-select.status-AVALIARRETORNO{color:var(--retorno);}
+
+  .tag{display:inline-block;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700;letter-spacing:.3px;white-space:nowrap;}
+  .tag-DISPONÍVEL{background:rgba(62,207,142,.15);color:var(--disp);}
+  .tag-EMROTA{background:rgba(91,156,240,.15);color:var(--rota);}
+  .tag-ESCALADO{background:rgba(224,184,74,.15);color:var(--escalado);}
+  .tag-MANUTENÇÃO{background:rgba(224,87,74,.15);color:var(--manut);}
+  .tag-DEIXARDEFORA{background:rgba(139,107,216,.15);color:var(--fora);}
+  .tag-AVALIARRETORNO{background:rgba(224,138,62,.15);color:var(--retorno);}
+  .muted{color:var(--muted);}
+  .empty{text-align:center;padding:40px;color:var(--muted);}
+  footer{margin-top:14px;color:var(--muted);font-size:11.5px;font-family:var(--mono);text-align:right;display:flex;justify-content:space-between;}
+
+  .del-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:2px 6px;border-radius:4px;line-height:1;}
+  .del-btn:hover{color:var(--manut);background:rgba(224,87,74,.12);}
+
+  .add-row-wrap{padding:12px;text-align:center;}
+  .add-btn{background:var(--panel-2);border:1px dashed var(--line);color:var(--muted);padding:9px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;width:100%;}
+  .add-btn:hover{border-color:var(--disp);color:var(--disp);}
+
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--panel-2);border:1px solid var(--disp);color:var(--text);padding:12px 18px;border-radius:8px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.4);opacity:0;transform:translateY(10px);transition:all .25s ease;pointer-events:none;z-index:50;}
+  .toast.show{opacity:1;transform:translateY(0);}
+
+  .print-only{display:none;}
+
+  .print-btn{background:var(--panel-2);color:var(--text);border-color:var(--line);}
+
+  @media print{
+    html, body{background:#fff !important;color:#111;padding:0;}
+    .controls, .summary, footer, .del-btn, .add-row-wrap, header, .no-print{display:none !important;}
+    .print-only{display:flex;gap:16px;margin-bottom:16px;}
+    .print-only .box{border:1px solid #111;border-radius:6px;padding:10px 16px;flex:1;}
+    .print-only .box .city{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#333;font-weight:700;}
+    .print-only .box .kg{font-size:20px;font-weight:700;color:#111;font-family:monospace;margin-top:4px;}
+    .print-only .box .qtd{font-size:11px;color:#555;margin-top:2px;}
+    table{background:#fff !important;border:1px solid #999;}
+    thead th{background:#eee !important;color:#333;position:static;}
+    tbody td{background:#fff !important;color:#111;border-bottom:1px solid #ccc;}
+    tbody tr:hover{background:#fff !important;}
+    .cell-input, .cell-select{color:#111;border:none;background:none !important;-webkit-appearance:none;appearance:none;}
+    .tag{border:1px solid #999;background:#fff !important;color:#111 !important;}
+    .muted{color:#666;}
+  }
+
+  @media (max-width:900px){
+    .right-actions{margin-left:0;width:100%;}
+    .search{width:100%;}
+    .search input{width:100%;}
+  }
+
+  .import-panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px;
+    margin:-6px 0 16px;
+    box-shadow:0 8px 24px rgba(0,0,0,.12);
+  }
+  .import-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-bottom:12px;
+  }
+  .import-head h2{font-size:15px;margin:0 0 4px;letter-spacing:.2px;}
+  .import-head p{font-size:11.5px;color:var(--muted);margin:0;line-height:1.45;}
+  .import-main{
+    display:grid;
+    grid-template-columns:minmax(280px,1fr) auto auto;
+    gap:8px;
+    align-items:center;
+    margin-bottom:12px;
+  }
+  .import-input{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:10px 11px;
+    border-radius:7px;
+    font-size:12.5px;
+    width:100%;
+  }
+  .import-input:focus{outline:none;border-color:var(--disp);}
+  .source-tabs{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:7px;
+    margin-bottom:10px;
+  }
+  .source-tab{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    min-height:50px;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    color:var(--muted);
+    border-radius:8px;
+    padding:9px 10px;
+    cursor:pointer;
+    text-align:left;
+    transition:border-color .12s ease, transform .12s ease, color .12s ease;
+  }
+  .source-tab:hover{border-color:#4a5b64;color:var(--text);transform:translateY(-1px);}
+  .source-tab.active{border-color:var(--disp);color:var(--text);box-shadow:inset 0 0 0 1px rgba(62,207,142,.18);}
+  .source-tab .tab-title{font-size:12px;font-weight:700;line-height:1.25;}
+  .source-tab .tab-sub{display:block;color:var(--muted);font-size:10.5px;font-weight:400;margin-top:2px;}
+  .tab-badge{
+    min-width:22px;
+    height:22px;
+    padding:0 6px;
+    border-radius:11px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    font-family:var(--mono);
+    font-size:10px;
+    background:rgba(139,160,171,.13);
+    color:var(--muted);
+  }
+  .tab-badge.ok{background:rgba(62,207,142,.15);color:var(--disp);}
+  .tab-badge.loading{background:rgba(224,184,74,.15);color:var(--escalado);}
+  .tab-badge.error{background:rgba(224,87,74,.15);color:var(--manut);}
+  .source-panel{
+    display:none;
+    grid-template-columns:minmax(240px,1fr) 150px auto;
+    gap:8px;
+    align-items:end;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:12px;
+  }
+  .source-panel.active{display:grid;}
+  .source-field{display:flex;flex-direction:column;gap:5px;}
+  .source-field label{font-size:10px;text-transform:uppercase;letter-spacing:.55px;color:var(--muted);font-weight:700;}
+  .source-panel-status{
+    grid-column:1/-1;
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--muted);
+    padding-top:2px;
+  }
+  .source-panel-status.ok{color:var(--disp);}
+  .source-panel-status.loading{color:var(--escalado);}
+  .source-panel-status.error{color:var(--manut);}
+  .import-global-status{
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px solid var(--line);
+    color:var(--muted);
+    font-size:11.5px;
+    font-family:var(--mono);
+    line-height:1.45;
+  }
+  .import-global-status.ok{color:var(--disp);}
+  .import-global-status.loading{color:var(--escalado);}
+  .import-global-status.error{color:var(--manut);}
+  .import-help{margin-top:8px;color:var(--muted);font-size:10.8px;line-height:1.45;}
+  @media(max-width:1000px){
+    .source-tabs{grid-template-columns:repeat(2,minmax(0,1fr));}
+  }
+  @media(max-width:720px){
+    .import-main{grid-template-columns:1fr 1fr;}
+    .import-main .import-input{grid-column:1/-1;}
+    .source-panel{grid-template-columns:1fr;}
+    .source-panel-status{grid-column:auto;}
+  }
+  @media(max-width:520px){
+    .source-tabs{grid-template-columns:1fr;}
+    .import-main{grid-template-columns:1fr;}
+    .import-main .import-input{grid-column:auto;}
+  }
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>Disponibilidade de Frota</h1>
+      <div class="sub">MIX Alimentos · Palmas / Araguaína · painel editável — clique em qualquer campo pra alterar</div>
+    </div>
+    <div class="clock">
+      <div>Entrega ao CD</div>
+      <b id="clockTime">11:05</b>
+    </div>
+  </header>
+
+  <div class="print-only" id="printSummary"><div class="box">
+      <div class="city">PALMAS</div>
+      <div class="kg">118.810 kg · 350,3 m³</div>
+      <div class="qtd">28 veículo(s)</div>
+    </div><div class="box">
+      <div class="city">ARAGUAÍNA</div>
+      <div class="kg">94.000 kg · 274,6 m³</div>
+      <div class="qtd">22 veículo(s)</div>
+    </div><div class="box">
+      <div class="city">Total filtrado</div>
+      <div class="kg">212.810 kg · 624,9 m³</div>
+      <div class="qtd">50 veículo(s) · todos os veículos (sem filtro)</div>
+    </div></div>
+
+  <div class="summary" id="summary">
+    <div class="card total active" data-status="">
+      <div class="n">50</div>
+      <div class="l">Frota total</div>
+      <div class="peso">212.810 kg · 624,9 m³</div>
+    </div>
+    <div class="card disp" data-status="DISPONÍVEL">
+      <div class="n">25</div>
+      <div class="l">Disponível</div>
+      <div class="peso">100.270 kg · 288,3 m³</div>
+    </div>
+    <div class="card rota" data-status="EM ROTA">
+      <div class="n">17</div>
+      <div class="l">Em rota</div>
+      <div class="peso">86.040 kg · 245,8 m³</div>
+    </div>
+    <div class="card escalado" data-status="ESCALADO">
+      <div class="n">3</div>
+      <div class="l">Escalado</div>
+      <div class="peso">6.500 kg · 24,4 m³</div>
+    </div>
+    <div class="card manut" data-status="MANUTENÇÃO">
+      <div class="n">5</div>
+      <div class="l">Manutenção</div>
+      <div class="peso">20.000 kg · 66,4 m³</div>
+    </div>
+    <div class="card fora" data-status="DEIXAR DE FORA">
+      <div class="n">0</div>
+      <div class="l">Deixar de fora</div>
+      <div class="peso">0 kg · 0,0 m³</div>
+    </div>
+    <div class="card retorno" data-status="AVALIAR RETORNO">
+      <div class="n">0</div>
+      <div class="l">Avaliar retorno</div>
+      <div class="peso">0 kg · 0,0 m³</div>
+    </div></div>
+
+  <div class="controls">
+    <div class="btn-group" id="statusGroup"><button class="btn st-DISPONÍVEL" data-v="DISPONÍVEL">Disponível</button><button class="btn st-EMROTA" data-v="EM ROTA">Em rota</button><button class="btn st-ESCALADO" data-v="ESCALADO">Escalado</button><button class="btn st-MANUTENÇÃO" data-v="MANUTENÇÃO">Manutenção</button><button class="btn st-DEIXARDEFORA" data-v="DEIXAR DE FORA">Deixar de fora</button><button class="btn st-AVALIARRETORNO" data-v="AVALIAR RETORNO">Avaliar retorno</button></div>
+    <div class="btn-group" id="filialGroup"><button class="btn on" data-v="">Todas as filiais</button><button class="btn" data-v="PALMAS">PALMAS</button><button class="btn" data-v="ARAGUAÍNA">ARAGUAÍNA</button></div>
+    <div class="btn-group" id="tipoGroup"><button class="btn on" data-v="">Próprio + Terceiro</button><button class="btn" data-v="PRÓPRIO">PRÓPRIO</button><button class="btn" data-v="TERCEIRO">TERCEIRO</button></div>
+    <div class="search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" id="searchBox" placeholder="Placa, motorista ou rota...">
+    </div>
+    <div class="right-actions">
+      <button class="action-btn" id="exportBtn">📊 Exportar Excel</button>
+      <button class="action-btn print-btn" id="printBtn">🖨 Imprimir / PDF</button>
+      <button class="action-btn primary" id="saveBtn">💾 Baixar painel atualizado</button>
+      <button class="action-btn danger" id="resetBtn" title="Apaga as alterações salvas neste navegador e volta aos dados originais do arquivo">↺ Restaurar original</button>
+    </div>
+  </div>
+
+  <div class="no-print" style="background:rgba(224,184,74,.1);border:1px solid var(--escalado);border-radius:8px;padding:10px 14px;margin:-6px 0 16px;font-size:12.5px;color:var(--text);line-height:1.5;">
+    ⚠️ <strong>Como salvar de verdade:</strong> mudar o status já fica guardado neste navegador como proteção temporária, mas isso pode se perder se você trocar de arquivo, navegador ou computador. Pra garantir que NADA se perca, clique em <strong>💾 Baixar painel atualizado</strong> sempre que terminar de mexer — isso grava as mudanças dentro de um arquivo novo. Depois, continue editando sempre a partir desse último arquivo baixado.
+  </div>
+
+  <section class="import-panel no-print" aria-label="Importação das quatro planilhas do Google Sheets">
+    <div class="import-head">
+      <div>
+        <h2>Importação da disponibilidade</h2>
+        <p>Quatro planilhas independentes, cada uma com seu próprio link: Palmas próprio, Palmas terceiro, Araguaína próprio e Araguaína terceiro. Versão corrigida para abertura local.</p>
+      </div>
+    </div>
+
+    <div class="import-main">
+      <button class="action-btn primary" id="importAllTabsBtn" type="button">Importar as 4 planilhas</button>
+      <button class="action-btn" id="refreshAllTabsBtn" type="button">↻ Atualizar as 4</button>
+    </div>
+
+    <div class="source-tabs" id="sourceTabs" role="tablist" aria-label="Planilhas de origem">
+      <button class="source-tab active" type="button" role="tab" aria-selected="true" data-source-key="palmasProprio">
+        <span><span class="tab-title">Palmas</span><span class="tab-sub">Frota própria</span></span>
+        <span class="tab-badge ok" id="badge-palmasProprio">11</span>
+      </button>
+      <button class="source-tab" type="button" role="tab" aria-selected="false" data-source-key="palmasTerceiro">
+        <span><span class="tab-title">Palmas</span><span class="tab-sub">Frota terceira</span></span>
+        <span class="tab-badge ok" id="badge-palmasTerceiro">17</span>
+      </button>
+      <button class="source-tab" type="button" role="tab" aria-selected="false" data-source-key="araguainaProprio">
+        <span><span class="tab-title">Araguaína</span><span class="tab-sub">Frota própria</span></span>
+        <span class="tab-badge ok" id="badge-araguainaProprio">15</span>
+      </button>
+      <button class="source-tab" type="button" role="tab" aria-selected="false" data-source-key="araguainaTerceiro">
+        <span><span class="tab-title">Araguaína</span><span class="tab-sub">Frota terceira</span></span>
+        <span class="tab-badge ok" id="badge-araguainaTerceiro">7</span>
+      </button>
+    </div>
+
+    <div class="source-panel active" data-panel-key="palmasProprio" role="tabpanel">
+      <div class="source-field" style="grid-column:1/-1">
+        <label for="sourceUrl-palmasProprio">Link da planilha — Palmas — Frota própria</label>
+        <input class="import-input source-url-input" id="sourceUrl-palmasProprio" data-source-key="palmasProprio" placeholder="Cole o link público desta planilha do Google Sheets">
+      </div>
+      <div class="source-field">
+        <label for="tabName-palmasProprio">Nome da aba (opcional)</label>
+        <input class="import-input tab-name-input" id="tabName-palmasProprio" data-source-key="palmasProprio" value="Palmas - Próprio" placeholder="Use somente se o link não tiver GID">
+      </div>
+      <div class="source-field">
+        <label for="tabGid-palmasProprio">GID opcional</label>
+        <input class="import-input tab-gid-input" id="tabGid-palmasProprio" data-source-key="palmasProprio" placeholder="O GID também pode vir no linkir no link">
+      </div>
+      <button class="action-btn" type="button" data-import-one="palmasProprio">Importar esta planilha</button>
+      <div class="source-panel-status ok" id="status-palmasProprio">11 veículo(s) · 65.560 kg · 175,4 m³</div>
+    </div>
+
+    <div class="source-panel" data-panel-key="palmasTerceiro" role="tabpanel">
+      <div class="source-field" style="grid-column:1/-1">
+        <label for="sourceUrl-palmasTerceiro">Link da planilha — Palmas — Frota terceira</label>
+        <input class="import-input source-url-input" id="sourceUrl-palmasTerceiro" data-source-key="palmasTerceiro" placeholder="Cole o link público desta planilha do Google Sheets">
+      </div>
+      <div class="source-field">
+        <label for="tabName-palmasTerceiro">Nome da aba (opcional)</label>
+        <input class="import-input tab-name-input" id="tabName-palmasTerceiro" data-source-key="palmasTerceiro" value="Palmas - Terceiro" placeholder="Use somente se o link não tiver GID">
+      </div>
+      <div class="source-field">
+        <label for="tabGid-palmasTerceiro">GID opcional</label>
+        <input class="import-input tab-gid-input" id="tabGid-palmasTerceiro" data-source-key="palmasTerceiro" placeholder="O GID também pode vir no linkir no link">
+      </div>
+      <button class="action-btn" type="button" data-import-one="palmasTerceiro">Importar esta planilha</button>
+      <div class="source-panel-status ok" id="status-palmasTerceiro">17 veículo(s) · 53.250 kg · 174,9 m³</div>
+    </div>
+
+    <div class="source-panel" data-panel-key="araguainaProprio" role="tabpanel">
+      <div class="source-field" style="grid-column:1/-1">
+        <label for="sourceUrl-araguainaProprio">Link da planilha — Araguaína — Frota própria</label>
+        <input class="import-input source-url-input" id="sourceUrl-araguainaProprio" data-source-key="araguainaProprio" placeholder="Cole o link público desta planilha do Google Sheets">
+      </div>
+      <div class="source-field">
+        <label for="tabName-araguainaProprio">Nome da aba (opcional)</label>
+        <input class="import-input tab-name-input" id="tabName-araguainaProprio" data-source-key="araguainaProprio" value="Araguaína - Próprio" placeholder="Use somente se o link não tiver GID">
+      </div>
+      <div class="source-field">
+        <label for="tabGid-araguainaProprio">GID opcional</label>
+        <input class="import-input tab-gid-input" id="tabGid-araguainaProprio" data-source-key="araguainaProprio" placeholder="O GID também pode vir no linkir no link">
+      </div>
+      <button class="action-btn" type="button" data-import-one="araguainaProprio">Importar esta planilha</button>
+      <div class="source-panel-status ok" id="status-araguainaProprio">15 veículo(s) · 67.100 kg · 202,4 m³</div>
+    </div>
+
+    <div class="source-panel" data-panel-key="araguainaTerceiro" role="tabpanel">
+      <div class="source-field" style="grid-column:1/-1">
+        <label for="sourceUrl-araguainaTerceiro">Link da planilha — Araguaína — Frota terceira</label>
+        <input class="import-input source-url-input" id="sourceUrl-araguainaTerceiro" data-source-key="araguainaTerceiro" placeholder="Cole o link público desta planilha do Google Sheets">
+      </div>
+      <div class="source-field">
+        <label for="tabName-araguainaTerceiro">Nome da aba (opcional)</label>
+        <input class="import-input tab-name-input" id="tabName-araguainaTerceiro" data-source-key="araguainaTerceiro" value="Araguaína - Terceiro" placeholder="Use somente se o link não tiver GID">
+      </div>
+      <div class="source-field">
+        <label for="tabGid-araguainaTerceiro">GID opcional</label>
+        <input class="import-input tab-gid-input" id="tabGid-araguainaTerceiro" data-source-key="araguainaTerceiro" placeholder="O GID também pode vir no linkir no link">
+      </div>
+      <button class="action-btn" type="button" data-import-one="araguainaTerceiro">Importar esta planilha</button>
+      <div class="source-panel-status ok" id="status-araguainaTerceiro">7 veículo(s) · 26.900 kg · 72,2 m³</div>
+    </div>
+
+    <div class="import-global-status ok" id="googleSheetStatus">4 planilhas sincronizadas · 50 veículo(s) · 212.810 kg · 624,9 m³ · 29/07/2026, 11:04:59</div>
+    <div class="import-help">
+      Compartilhe cada planilha como “Qualquer pessoa com o link — Leitor”. Esta versão também funciona quando o HTML é aberto diretamente pela pasta Downloads. As colunas <strong>Placa</strong>, <strong>Peso (kg)</strong> e <strong>Cubagem (m³)</strong> são obrigatórias.
+      As colunas Filial e Tipo são definidas automaticamente pela planilha escolhida. Cabeçalhos aceitos: Placa, Modelo, Motorista,
+      Peso, Cubagem, Status, Rota/Obs., Carga 1, Carga 2, Carga 3 e Paletes.
+    </div>
+  </section>
+
+  <table>
+    <thead>
+      <tr>
+        <th data-k="filial">Filial</th>
+        <th data-k="placa">Placa</th>
+        <th data-k="modelo">Modelo</th>
+        <th data-k="tipo">Tipo</th>
+        <th data-k="motorista">Motorista</th>
+        <th data-k="peso">Peso (kg)</th>
+        <th data-k="cubagem">Cubagem (m³)</th>
+        <th data-k="status">Status</th>
+        <th data-k="obs">Rota / Obs.</th>
+        <th data-k="carga1">Carga 1</th>
+        <th data-k="carga2">Carga 2</th>
+        <th data-k="carga3">Carga 3</th>
+        <th class="no-sort"></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"><tr data-id="1">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="QKJ3D95"></td>
+        <td><input class="cell-input" data-field="modelo" value="TRUCK" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="CLESIO" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="12640"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="22.8"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="PATIO" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="2">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="OLI3A69"></td>
+        <td><input class="cell-input" data-field="modelo" value="TOCO" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="ISMAELDO" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="7780"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="18"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="PATIO" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="3">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="JBP5D76"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="FRANCIONE" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="13.6"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="PATIO" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="4">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="RMA6F24"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="MERCIO" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="13.6"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="VOLTANDO DE ROTA - CHEGADA PREVISTA 20 HORAS" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="5">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="RIM5E10"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="REGIMAR" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="PATIO" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="6">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="JBP5D87"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="FRANCISCO" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="13.6"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="PORTO NACIONAL" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="7">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="TVE2G82"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="JUILSON" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4500"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="13.6"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="PEDRO AFONSO" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="8">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="JBP5D81"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="RAIMUNDO" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="13.6"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="COLINAS" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="9">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="JBP5D79"></td>
+        <td><input class="cell-input" data-field="modelo" value="" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="JUNIOR" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="13.6"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="PARAISO" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="10">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="RSE8A83"></td>
+        <td><input class="cell-input" data-field="modelo" value="TRUCK" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="ISMAELDO" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="12640"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="26.6"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="REDENCAO" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="11">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="RIN9D20"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="13.6"></td>
+        <td><select class="cell-select status-MANUTENÇÃO" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO" selected="">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="REPARO NA PORTA DO MOTORISTA - PREVISAO 01/08" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="12">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="BHM2D90"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="HENRIQUE ANTONIO" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="2800"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="9.6"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="ESCALAR EM PALMAS OU CIDADES PROXIMAS" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="13">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="JAU0122"></td>
+        <td><input class="cell-input" data-field="modelo" value="TOCO" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="JEOVANE" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="8000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="21.6"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="14">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="MWA0531"></td>
+        <td><input class="cell-input" data-field="modelo" value="TOCO" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="JORDANES" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="8000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="21.6"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="15">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="OLN6D33"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="EMANUEL RIBAMAR" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="3000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="16">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="PLL3F14"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="HELIO MARCELINO" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="3000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="17">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="PZJ0A29"></td>
+        <td><input class="cell-input" data-field="modelo" value="FIORINO" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="WESLEY SERPA" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="650"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="1.5"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="18">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="QHM1A78"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="PAULO COSTA" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="13.6"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="19">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="QKD3A46"></td>
+        <td><input class="cell-input" data-field="modelo" value="FIORINO" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="RODRIGO RIBEIRO" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="650"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="1"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="20">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="RTB0J61"></td>
+        <td><input class="cell-input" data-field="modelo" value="FIORINO" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="FLAVIO RODRIGUES" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="600"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="1.2"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="21">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="RVW4D80"></td>
+        <td><input class="cell-input" data-field="modelo" value="FIORINO" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="KAYRAN PAULINO" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="550"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="1.2"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="22">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="RMP1E50"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="THALES BRUNO" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="13.6"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="23">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="MXB6D14"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="ROBERTO SILVA" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="2800"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="9.6"></td>
+        <td><select class="cell-select status-ESCALADO" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO" selected="">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="24">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="NJF6G82"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="ROBERTO SILVA" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="2800"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-ESCALADO" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO" selected="">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="25">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="QKK2D35"></td>
+        <td><input class="cell-input" data-field="modelo" value="FURGAO" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="RODRIGO COELHO" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="900"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="2"></td>
+        <td><select class="cell-select status-ESCALADO" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO" selected="">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="ESCALAR SOMENTE EM ROTAS DE PALMAS" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="26">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="PAN5A78"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="MADSON ALVES" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="3500"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-MANUTENÇÃO" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO" selected="">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="27">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="MXA6803"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="S/MOTORISTA" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="13.6"></td>
+        <td><select class="cell-select status-MANUTENÇÃO" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO" selected="">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="28">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS" selected="">PALMAS</option><option value="ARAGUAÍNA">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="OYA5G08"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="ANTONIO LUIZ" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="13.6"></td>
+        <td><select class="cell-select status-MANUTENÇÃO" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO" selected="">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="29">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="QKA6D96"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="3500"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="30">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="JBP5D86"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="JOSE MACIEL" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="31">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="QKK8E91"></td>
+        <td><input class="cell-input" data-field="modelo" value="TOCO" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="7800"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="18"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="32">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="RIM5D85"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="33">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="RIM5D95"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="34">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="RKO8D25"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="35">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="RKO8D26"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="36">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="RIM5E05"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="37">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="RIN4E81"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="38">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="JBP5D82"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="39">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="RKO8D24"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="LUEDISON" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="40">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="QKI2E52"></td>
+        <td><input class="cell-input" data-field="modelo" value="TOCO" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="WELBSON" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="7800"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="18"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="41">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="RIN4E79"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="CASSIO" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="42">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="RIN4E77"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="43">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="JBP5D78"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO" selected="">PRÓPRIO</option><option value="TERCEIRO">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="WANDERSOM" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="44">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="NVO8F94"></td>
+        <td><input class="cell-input" data-field="modelo" value="FIORINO" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="JOAO PAULO" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="650"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="1.5"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="45">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="SJD6I04"></td>
+        <td><input class="cell-input" data-field="modelo" value="FIORINO" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="WILSON GONCALVES" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="650"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="1.5"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="46">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="JJL1C28"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="MARCONI" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4000"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-DISPONÍVEL" data-field="status" style="min-width:140px"><option value="DISPONÍVEL" selected="">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="47">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="OLM8D71"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="KALEBY" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4500"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="48">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="QVF8I47"></td>
+        <td><input class="cell-input" data-field="modelo" value="TOCO" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="WELISON" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="7800"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="18"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="IMPERATRIZ" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="49">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="ROA4F62"></td>
+        <td><input class="cell-input" data-field="modelo" value="3/4" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="GABRIEL DIAS" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4800"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-EMROTA" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA" selected="">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="AUGUSTINOPOLIS" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr><tr data-id="50">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px"><option value="PALMAS">PALMAS</option><option value="ARAGUAÍNA" selected="">ARAGUAÍNA</option></select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="TVB6I95"></td>
+        <td><input class="cell-input" data-field="modelo" value="" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px"><option value="PRÓPRIO">PRÓPRIO</option><option value="TERCEIRO" selected="">TERCEIRO</option></select></td>
+        <td><input class="cell-input" data-field="motorista" value="IGOR" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="4500"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="12.8"></td>
+        <td><select class="cell-select status-MANUTENÇÃO" data-field="status" style="min-width:140px"><option value="DISPONÍVEL">DISPONÍVEL</option><option value="EM ROTA">EM ROTA</option><option value="ESCALADO">ESCALADO</option><option value="MANUTENÇÃO" selected="">MANUTENÇÃO</option><option value="DEIXAR DE FORA">DEIXAR DE FORA</option><option value="AVALIAR RETORNO">AVALIAR RETORNO</option></select></td>
+        <td><input class="cell-input" data-field="obs" value="" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr></tbody>
+  </table>
+
+  <div class="add-row-wrap">
+    <button class="add-btn" id="addBtn">+ Adicionar veículo</button>
+  </div>
+
+  <footer>
+    <span id="footerCount">50 de 50 veículos exibidos · 212.810 kg · 624,9 m³</span>
+    <span id="autosaveStatus" style="color:var(--disp);">Proteção temporária deste navegador atualizada às 16:31 — clique em "Baixar painel atualizado" para salvar de verdade</span>
+    <span>Edições locais não são enviadas às quatro planilhas; uma nova sincronização substitui os respectivos grupos</span>
+  </footer>
+</div>
+
+<div class="toast" id="toast">Alterações salvas anteriormente neste navegador foram restauradas</div>
+
+<script src="./Disponibilidade de Frota — MIX Alimentos_files/xlsx.full.min.js.download"></script>
+<script>
+
+const FOUR_TAB_SHEET_STORAGE = "mixFleetGoogleSheetsFourLinksV3";
+let fourTabRefreshTimer = null;
+
+const FOUR_SOURCES = {
+  palmasProprio: {label:"Palmas · Próprio", filial:"PALMAS", tipo:"PRÓPRIO", defaultTab:"Palmas - Próprio"},
+  palmasTerceiro: {label:"Palmas · Terceiro", filial:"PALMAS", tipo:"TERCEIRO", defaultTab:"Palmas - Terceiro"},
+  araguainaProprio: {label:"Araguaína · Próprio", filial:"ARAGUAÍNA", tipo:"PRÓPRIO", defaultTab:"Araguaína - Próprio"},
+  araguainaTerceiro: {label:"Araguaína · Terceiro", filial:"ARAGUAÍNA", tipo:"TERCEIRO", defaultTab:"Araguaína - Terceiro"}
+};
+
+function sheetText(value){
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toUpperCase();
+}
+function sheetHeader(value){
+  return sheetText(value)
+    .replace(/³/g,"3")
+    .replace(/²/g,"2")
+    .replace(/[^A-Z0-9]+/g," ")
+    .replace(/\s+/g," ")
+    .trim();
+}
+function sheetId(value){
+  const text = String(value || "").trim();
+  const match = text.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if(match) return match[1];
+  return /^[a-zA-Z0-9-_]{20,}$/.test(text) ? text : "";
+}
+function sheetGid(value){
+  const match = String(value || "").match(/[?#&]gid=(\d+)/);
+  return match ? match[1] : "";
+}
+function sheetNumber(value){
+  if(value === null || value === undefined || value === "") return null;
+  let text = String(value).trim().replace(/\s/g,"");
+  if(text.includes(",")) text = text.replace(/\./g,"").replace(",",".");
+  text = text.replace(/[^0-9.-]/g,"");
+  const number = Number(text);
+  return Number.isFinite(number) ? number : null;
+}
+function sheetStatusValue(value){
+  const status = sheetText(value);
+  if(status.includes("EM ROTA") || status === "ROTA") return "EM ROTA";
+  if(status.includes("ESCALAD") || status === "ESCALA") return "ESCALADO";
+  if(status.includes("MANUT") || status.includes("OFICINA")) return "MANUTENÇÃO";
+  if(status.includes("FORA")) return "DEIXAR DE FORA";
+  if(status.includes("RETORNO") || status.includes("AVALIAR")) return "AVALIAR RETORNO";
+  if(status.includes("DISPON")) return "DISPONÍVEL";
+  return "DISPONÍVEL";
+}
+
+function parsePesoCubagem(value){
+  const original = String(value ?? "").replace(/\u00A0/g, " ").trim();
+  if(!original) return {peso:null, cubagem:null};
+
+  const pesoMatch = original.match(/([\d.,]+)\s*KG\b/i);
+  const cubagemMatch = original.match(/([\d.,]+)\s*M\s*(?:³|3)\b/i);
+
+  let peso = pesoMatch ? sheetNumber(pesoMatch[1]) : null;
+  let cubagem = cubagemMatch ? sheetNumber(cubagemMatch[1]) : null;
+
+  if(peso === null || cubagem === null){
+    const partes = original.split(/[\/|;]/).map(item => item.trim()).filter(Boolean);
+    if(peso === null && partes[0]) peso = sheetNumber(partes[0]);
+    if(cubagem === null && partes[1]) cubagem = sheetNumber(partes[1]);
+  }
+
+  return {peso, cubagem};
+}
+
+function parsePlacaModelo(value){
+  const original = sheetText(value);
+  const plateMatch = original.match(/\b[A-Z]{3}[0-9][A-Z0-9][0-9]{2}\b/);
+  const placa = plateMatch ? plateMatch[0] : original.replace(/[^A-Z0-9]/g, "").slice(0,7);
+
+  let modelo = "";
+  const separatorMatch = original.match(/\s[-–—]\s*(.+)$/);
+  if(separatorMatch) modelo = separatorMatch[1].trim();
+
+  return {placa, modelo};
+}
+function findHeader(headers, aliases){
+  const normalized = new Map(headers.map(h => [sheetHeader(h), h]));
+  for(const alias of aliases){
+    const found = normalized.get(sheetHeader(alias));
+    if(found !== undefined) return found;
+  }
+  return null;
+}
+function fourTabGvizUrl(source, tabName, gid, callbackName){
+  const id = sheetId(source);
+  if(!id) throw new Error("Link ou ID da planilha inválido.");
+  const cleanGid = String(gid || sheetGid(source) || "").trim();
+  const tqx = encodeURIComponent(`out:json;responseHandler:${callbackName}`);
+  let url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?headers=1&tqx=${tqx}`;
+  if(cleanGid) url += `&gid=${encodeURIComponent(cleanGid)}`;
+  else if(String(tabName || "").trim()) url += `&sheet=${encodeURIComponent(tabName.trim())}`;
+  else url += "&gid=0";
+  return url;
+}
+function loadGvizResponse(source, tabName, gid){
+  return new Promise((resolve,reject) => {
+    const callbackName = `__mixGviz_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement("script");
+    let settled = false;
+    const cleanup = () => {
+      if(script.parentNode) script.parentNode.removeChild(script);
+      try{ delete window[callbackName]; }catch(_){ window[callbackName] = undefined; }
+    };
+    const finishError = message => {
+      if(settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
+      cleanup();
+      reject(new Error(message));
+    };
+    window[callbackName] = response => {
+      if(settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
+      cleanup();
+      if(!response || response.status === "error"){
+        const detail = response?.errors?.map(item => item.detailed_message || item.message).filter(Boolean).join(" ");
+        reject(new Error(detail || "O Google não liberou a leitura da planilha."));
+        return;
+      }
+      resolve(response);
+    };
+    // Fallback para respostas padrão do Google gviz, que usam google.visualization.Query.setResponse.
+    window.google = window.google || {};
+    window.google.visualization = window.google.visualization || {};
+    window.google.visualization.Query = window.google.visualization.Query || {};
+    window.google.visualization.Query.setResponse = response => window[callbackName](response);
+    script.async = true;
+    script.onerror = () => finishError("Não foi possível acessar a planilha. Confirme o compartilhamento como Qualquer pessoa com o link — Leitor.");
+    script.src = fourTabGvizUrl(source,tabName,gid,callbackName) + `&_=${Date.now()}`;
+    const timeoutId = setTimeout(() => finishError("Tempo esgotado ao acessar a planilha. Verifique o link, a aba e o compartilhamento."),20000);
+    document.head.appendChild(script);
+  });
+}
+function gvizResponseToRows(response){
+  const table = response?.table;
+  if(!table || !Array.isArray(table.cols) || !Array.isArray(table.rows)){
+    throw new Error("A resposta da planilha está em um formato inválido.");
+  }
+  const headers = table.cols.map((col,index) => String(col?.label || col?.id || `COLUNA ${index+1}`).trim());
+  return table.rows.map(row => {
+    const object = {};
+    headers.forEach((header,index) => {
+      const cell = row?.c?.[index];
+      object[header] = cell ? (cell.f ?? cell.v ?? null) : null;
+    });
+    return object;
+  });
+}
+function rowsToVehiclesBySource(rows, sourceKey){
+  const source = FOUR_SOURCES[sourceKey];
+  if(!rows.length) return [];
+
+  const headers = Object.keys(rows[0]);
+  const aliases = {
+    placa:["PLACA","VEICULO","VEICULO PLACA","PLACA VEICULO"],
+    modelo:["MODELO","MODELO VEICULO","CARROCERIA"],
+    motorista:["MOTORISTA","CONDUTOR"],
+    peso:["PESO","PESO KG","PESO EM KG","PESO TOTAL","PESO TOTAL KG","PESO LIQUIDO","PESO BRUTO","CAPACIDADE KG","CAPACIDADE PESO","KG"],
+    cubagem:["CUBAGEM","CUBAGEM M3","CUBAGEM EM M3","M3","METROS CUBICOS","METRO CUBICO","VOLUME M3","CAPACIDADE M3"],
+    capacidade:["CAP PESO CUBAGEM","CAPACIDADE PESO CUBAGEM","PESO CUBAGEM","PESO E CUBAGEM","CAP PESO M3","CAPACIDADE KG M3"],
+    status:["STATUS","SITUACAO","DISPONIBILIDADE"],
+    obs:["OBS","OBSERVACAO","ROTA","DESTINO","ROTA OBS","ROTA OBSERVACAO"],
+    carga1:["CARGA 1","CARGA1","ROTA 1","DESTINO 1"],
+    carga2:["CARGA 2","CARGA2","ROTA 2","DESTINO 2"],
+    carga3:["CARGA 3","CARGA3","ROTA 3","DESTINO 3"],
+    paletes:["PALETES","QTD PALETES","PALETES QTD"]
+  };
+  const map = {};
+  Object.entries(aliases).forEach(([field,list]) => map[field] = findHeader(headers,list));
+  if(!map.placa) throw new Error('A primeira linha da planilha precisa conter o cabeçalho "Placa".');
+  if((!map.peso || !map.cubagem) && !map.capacidade){
+    throw new Error('A planilha precisa ter as colunas separadas "Peso" e "Cubagem" ou a coluna combinada "CAP.PESO/CUBAGEM".');
+  }
+
+  const get = (row,field) => map[field] ? row[map[field]] : null;
+  return rows.map(row => {
+    const placaModelo = parsePlacaModelo(get(row,"placa"));
+    if(!placaModelo.placa) return null;
+
+    const capacidade = parsePesoCubagem(get(row,"capacidade"));
+    const pesoSeparado = sheetNumber(get(row,"peso"));
+    const cubagemSeparada = sheetNumber(get(row,"cubagem"));
+    const carga1 = sheetText(get(row,"carga1")) || null;
+
+    return {
+      filial:source.filial,
+      tipo:source.tipo,
+      placa:placaModelo.placa,
+      modelo:sheetText(get(row,"modelo")) || placaModelo.modelo || "",
+      motorista:sheetText(get(row,"motorista")) || null,
+      peso:pesoSeparado ?? capacidade.peso,
+      cubagem:cubagemSeparada ?? capacidade.cubagem,
+      status:sheetStatusValue(get(row,"status")),
+      obs:sheetText(get(row,"obs")) || carga1,
+      paletes:sheetNumber(get(row,"paletes")),
+      carga1,
+      carga2:sheetText(get(row,"carga2")) || null,
+      carga3:sheetText(get(row,"carga3")) || null
+    };
+  }).filter(Boolean);
+}
+function getFourTabConfig(){
+  const sources = {};
+  Object.keys(FOUR_SOURCES).forEach(key => {
+    sources[key] = {
+      url:document.getElementById(`sourceUrl-${key}`).value.trim(),
+      name:document.getElementById(`tabName-${key}`).value.trim(),
+      gid:document.getElementById(`tabGid-${key}`).value.trim()
+    };
+  });
+  return {sources};
+}
+function saveFourTabConfig(){
+  localStorage.setItem(FOUR_TAB_SHEET_STORAGE, JSON.stringify(getFourTabConfig()));
+}
+function loadFourTabConfig(){
+  let config = {};
+  try{config = JSON.parse(localStorage.getItem(FOUR_TAB_SHEET_STORAGE) || "{}");}catch(_){config = {};}
+  Object.entries(FOUR_SOURCES).forEach(([key,source]) => {
+    document.getElementById(`sourceUrl-${key}`).value = config.sources?.[key]?.url || "";
+    document.getElementById(`tabName-${key}`).value = config.sources?.[key]?.name || source.defaultTab;
+    document.getElementById(`tabGid-${key}`).value = config.sources?.[key]?.gid || "";
+  });
+  return config;
+}
+function setSourceStatus(sourceKey,kind,message,count=null){
+  const status = document.getElementById(`status-${sourceKey}`);
+  const badge = document.getElementById(`badge-${sourceKey}`);
+  status.className = "source-panel-status" + (kind ? ` ${kind}` : "");
+  status.textContent = message;
+  badge.className = "tab-badge" + (kind ? ` ${kind}` : "");
+  badge.textContent = count === null ? (kind === "loading" ? "…" : kind === "error" ? "!" : "—") : String(count);
+}
+function setGlobalSheetStatus(kind,message){
+  const el = document.getElementById("googleSheetStatus");
+  el.className = "import-global-status" + (kind ? ` ${kind}` : "");
+  el.textContent = message;
+}
+function applyVehiclesToPanel(vehicles){
+  VEHICLES = vehicles.map((vehicle,index) => ({...vehicle,id:index+1}));
+  nextId = VEHICLES.length + 1;
+  state.status.clear();
+  state.filial = null;
+  state.tipo = null;
+  state.search = "";
+  document.getElementById("searchBox").value = "";
+  buildSummary();
+  renderAll();
+}
+function validateUniquePlates(vehicles){
+  const seen = new Map();
+  const duplicates = new Set();
+  vehicles.forEach(vehicle => {
+    if(seen.has(vehicle.placa)) duplicates.add(vehicle.placa);
+    else seen.set(vehicle.placa,true);
+  });
+  if(duplicates.size){
+    throw new Error(`Placa(s) repetida(s) entre as abas: ${[...duplicates].slice(0,8).join(", ")}${duplicates.size > 8 ? "..." : ""}`);
+  }
+}
+async function fetchSourceVehicles(sourceKey){
+  const config = getFourTabConfig();
+  const sourceConfig = config.sources[sourceKey];
+  if(!sourceConfig.url) throw new Error(`Informe o link de ${FOUR_SOURCES[sourceKey].label}.`);
+  setSourceStatus(sourceKey,"loading",`Carregando ${FOUR_SOURCES[sourceKey].label}...`);
+  const response = await loadGvizResponse(sourceConfig.url,sourceConfig.name,sourceConfig.gid);
+  const rows = gvizResponseToRows(response);
+  const vehicles = rowsToVehiclesBySource(rows,sourceKey);
+  const pesoTotal = vehicles.reduce((s,v) => s + (v.peso || 0), 0);
+  const cubagemTotal = vehicles.reduce((s,v) => s + (v.cubagem || 0), 0);
+  setSourceStatus(sourceKey,"ok",`${vehicles.length} veículo(s) · ${pesoTotal.toLocaleString('pt-BR', {maximumFractionDigits:2})} kg · ${cubagemTotal.toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:2})} m³`,vehicles.length);
+  return vehicles;
+}
+async function importOneSource(sourceKey,showToastMessage=true){
+  try{
+    setGlobalSheetStatus("loading",`Atualizando ${FOUR_SOURCES[sourceKey].label}...`);
+    const imported = await fetchSourceVehicles(sourceKey);
+    const source = FOUR_SOURCES[sourceKey];
+    const retained = VEHICLES.filter(v => !(v.filial === source.filial && v.tipo === source.tipo));
+    const combined = [...retained,...imported];
+    validateUniquePlates(combined);
+    applyVehiclesToPanel(combined);
+    saveFourTabConfig();
+    setGlobalSheetStatus("ok",`${FOUR_SOURCES[sourceKey].label} atualizado · ${VEHICLES.length} veículo(s) no painel · ${new Date().toLocaleString("pt-BR")}`);
+    if(showToastMessage) showToast(`${FOUR_SOURCES[sourceKey].label}: ${imported.length} veículo(s)`);
+    return true;
+  }catch(error){
+    console.error(error);
+    setSourceStatus(sourceKey,"error",error.message);
+    setGlobalSheetStatus("error",`Erro: ${error.message}`);
+    if(showToastMessage) showToast(error.message);
+    return false;
+  }
+}
+async function importAllSources(showToastMessage=true){
+  const config = getFourTabConfig();
+  const missing = Object.keys(FOUR_SOURCES).filter(key => !config.sources[key].url);
+  if(missing.length){
+    const labels = missing.map(key => FOUR_SOURCES[key].label).join(", ");
+    setGlobalSheetStatus("error",`Informe os links pendentes: ${labels}.`);
+    if(showToastMessage) showToast("Preencha os quatro links");
+    return false;
+  }
+  setGlobalSheetStatus("loading","Carregando as quatro planilhas...");
+  const keys = Object.keys(FOUR_SOURCES);
+  try{
+    const groups = [];
+    for(const key of keys){
+      try{
+        groups.push(await fetchSourceVehicles(key));
+      }catch(error){
+        setSourceStatus(key,"error",error.message);
+        throw error;
+      }
+    }
+    const combined = groups.flat();
+    validateUniquePlates(combined);
+    applyVehiclesToPanel(combined);
+    saveFourTabConfig();
+    const pesoTotal = combined.reduce((s,v) => s + (v.peso || 0), 0);
+    const cubagemTotal = combined.reduce((s,v) => s + (v.cubagem || 0), 0);
+    setGlobalSheetStatus("ok",`4 planilhas sincronizadas · ${combined.length} veículo(s) · ${pesoTotal.toLocaleString('pt-BR', {maximumFractionDigits:2})} kg · ${cubagemTotal.toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:2})} m³ · ${new Date().toLocaleString("pt-BR")}`);
+    if(showToastMessage) showToast(`Importação concluída: ${combined.length} veículo(s)`);
+    return true;
+  }catch(error){
+    console.error(error);
+    setGlobalSheetStatus("error",`Importação interrompida: ${error.message}`);
+    if(showToastMessage) showToast(error.message);
+    return false;
+  }
+}
+function activateSourceTab(sourceKey){
+  document.querySelectorAll(".source-tab").forEach(tab => {
+    const active = tab.dataset.sourceKey === sourceKey;
+    tab.classList.toggle("active",active);
+    tab.setAttribute("aria-selected",String(active));
+  });
+  document.querySelectorAll(".source-panel").forEach(panel => panel.classList.toggle("active",panel.dataset.panelKey === sourceKey));
+}
+function initFourTabGoogleSheets(){
+  const config = loadFourTabConfig();
+  document.querySelectorAll(".source-tab").forEach(tab => tab.addEventListener("click",() => activateSourceTab(tab.dataset.sourceKey)));
+  document.querySelectorAll("[data-import-one]").forEach(button => button.addEventListener("click",() => importOneSource(button.dataset.importOne,true)));
+  document.getElementById("importAllTabsBtn").addEventListener("click",() => importAllSources(true));
+  document.getElementById("refreshAllTabsBtn").addEventListener("click",() => importAllSources(true));
+  document.querySelectorAll(".source-url-input,.tab-name-input,.tab-gid-input").forEach(input => input.addEventListener("change",saveFourTabConfig));
+
+  clearInterval(fourTabRefreshTimer);
+  fourTabRefreshTimer = setInterval(() => {
+    const current = getFourTabConfig();
+    const allConfigured = Object.keys(FOUR_SOURCES).every(key => current.sources[key].url);
+    if(allConfigured) importAllSources(false);
+  },300000);
+
+  const allConfigured = Object.keys(FOUR_SOURCES).every(key => config.sources?.[key]?.url);
+  if(allConfigured) importAllSources(false);
+}
+
+/*DATA_START*/
+let VEHICLES = [{"filial": "PALMAS", "tipo": "PRÓPRIO", "placa": "JBP5D76", "modelo": "3/4", "motorista": null, "peso": 4000.0, "cubagem": 13.6, "status": "DISPONÍVEL", "obs": null, "paletes": 8, "carga1": null, "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "PRÓPRIO", "placa": "RIN9D20", "modelo": "3/4", "motorista": "CLÉSIO", "peso": 4000.0, "cubagem": 13.6, "status": "DISPONÍVEL", "obs": null, "paletes": 8, "carga1": null, "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "PRÓPRIO", "placa": "RMA6F24", "modelo": "3/4", "motorista": "JUILSON", "peso": 4000.0, "cubagem": 13.6, "status": "EM ROTA", "obs": "XINGUARA", "paletes": 8, "carga1": "XINGUARA", "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "PRÓPRIO", "placa": "JBP5D81", "modelo": "3/4", "motorista": "FRANCISCO", "peso": 4000.0, "cubagem": 13.6, "status": "EM ROTA", "obs": "COLINAS", "paletes": 8, "carga1": "COLINAS", "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "PRÓPRIO", "placa": "TVE2G82", "modelo": "3/4", "motorista": "MERCIO MENEZES", "peso": 4500.0, "cubagem": 13.6, "status": "EM ROTA", "obs": "GURUPI", "paletes": 8, "carga1": "GURUPI", "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "PRÓPRIO", "placa": "RIM5E10", "modelo": "3/4", "motorista": "UESLEY", "peso": 4000.0, "cubagem": 12.8, "status": "EM ROTA", "obs": "REDENÇÃO/XINGURA", "paletes": 8, "carga1": "REDENÇÃO", "carga2": "XINGURA", "carga3": null}, {"filial": "PALMAS", "tipo": "PRÓPRIO", "placa": "JBP5D79", "modelo": "3/4", "motorista": "ISMAELDO", "peso": 4000.0, "cubagem": 13.6, "status": "ESCALADO", "obs": "MIRACEMA 1", "paletes": 8, "carga1": "MIRACEMA 1", "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "PRÓPRIO", "placa": "JBP5D87", "modelo": "3/4", "motorista": "ARIOSVALDO", "peso": 4000.0, "cubagem": 13.6, "status": "ESCALADO", "obs": "MIRACEMA 2", "paletes": 8, "carga1": "MIRACEMA 2", "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "PRÓPRIO", "placa": "OLI3A69", "modelo": "TOCO", "motorista": "FRANCIONE", "peso": 7780.0, "cubagem": 18.0, "status": "ESCALADO", "obs": "ATACADÃO RODOVIARIA / 16/07", "paletes": 10, "carga1": "ATACADÃO RODOVIARIA", "carga2": "16", "carga3": "07"}, {"filial": "PALMAS", "tipo": "PRÓPRIO", "placa": "QKJ3D95", "modelo": "TRUCK", "motorista": "REGIMAR", "peso": 12640.0, "cubagem": 22.8, "status": "ESCALADO", "obs": "COLINAS", "paletes": 12, "carga1": "COLINAS", "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "PRÓPRIO", "placa": "RSE8A83", "modelo": "TRUCK", "motorista": null, "peso": 12640.0, "cubagem": 26.6, "status": "MANUTENÇÃO", "obs": "PREVENTIVA DO CAMINHÃO - 15/07", "paletes": 14, "carga1": "PREVENTIVA DO CAMINHÃO - 15", "carga2": "07", "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "QKK2D35", "modelo": "FURGÃO", "motorista": "RODRIGO COELHO", "peso": 900.0, "cubagem": 1.5, "status": "DISPONÍVEL", "obs": null, "paletes": 1, "carga1": null, "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "RVW4D80", "modelo": "FIORINO", "motorista": "KAYRAN PAULINO", "peso": 550.0, "cubagem": 1.2, "status": "MANUTENÇÃO", "obs": null, "paletes": 1, "carga1": null, "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "MXA6803", "modelo": "3/4", "motorista": "S/MOTORISTA", "peso": 4000.0, "cubagem": 13.6, "status": "MANUTENÇÃO", "obs": null, "paletes": 8, "carga1": null, "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "MWA0531", "modelo": "TOCO", "motorista": "JORDANES", "peso": 8000.0, "cubagem": 21.6, "status": "ESCALADO", "obs": "PARAÍSO DO TO", "paletes": 10, "carga1": "PARAÍSO DO TO", "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "NJF6G82", "modelo": "3/4", "motorista": "ROBERTO SILVA", "peso": 2800.0, "cubagem": 12.8, "status": "ESCALADO", "obs": "DIANOPOLIS", "paletes": 8, "carga1": "DIANOPOLIS", "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "RMP1E50", "modelo": "3/4", "motorista": "THALES BRUNO", "peso": 4000.0, "cubagem": 13.6, "status": "ESCALADO", "obs": "NATIVIDADE", "paletes": 8, "carga1": "NATIVIDADE", "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "PLL3F14", "modelo": "3/4", "motorista": "HELIO MARCELINO", "peso": 3000.0, "cubagem": 12.8, "status": "ESCALADO", "obs": "DIANOPOLIS", "paletes": 8, "carga1": "DIANOPOLIS", "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "OYA5G08", "modelo": "3/4", "motorista": "ANTONIO LUIZ", "peso": 4000.0, "cubagem": 13.6, "status": "ESCALADO", "obs": "GUARAÍ", "paletes": 8, "carga1": "GUARAÍ", "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "PAN5A78", "modelo": "3/4", "motorista": "MADSON ALVES", "peso": 3500.0, "cubagem": 12.8, "status": "ESCALADO", "obs": "GURUPI/ALVORADA", "paletes": 8, "carga1": "GURUPI", "carga2": "ALVORADA", "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "QHM1A78", "modelo": "3/4", "motorista": "PAULO COSTA", "peso": 4000.0, "cubagem": 13.6, "status": "ESCALADO", "obs": "PEDRO AFONSO", "paletes": 8, "carga1": "PEDRO AFONSO", "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "OLN6D33", "modelo": "3/4", "motorista": "EMANUEL RIBAMAR", "peso": 3000.0, "cubagem": 12.8, "status": "ESCALADO", "obs": "PORTO NACIONAL", "paletes": 7, "carga1": "PORTO NACIONAL", "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "JAU0122", "modelo": "TOCO", "motorista": "JEOVANE", "peso": 8000.0, "cubagem": 21.6, "status": "EM ROTA", "obs": "PORTO NACIONAL", "paletes": 12, "carga1": "PORTO NACIONAL", "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "MXB6D14", "modelo": "3/4", "motorista": "RODRIGO COELHO", "peso": 2800.0, "cubagem": 9.6, "status": "DISPONÍVEL", "obs": null, "paletes": 6, "carga1": null, "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "BHM2D90", "modelo": "3/4", "motorista": "HENRIQUE ANTONIO", "peso": 2800.0, "cubagem": 9.6, "status": "DISPONÍVEL", "obs": null, "paletes": 6, "carga1": null, "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "RTB0J61", "modelo": "FIORINO", "motorista": "FLÁVIO RODRIGUES", "peso": 600.0, "cubagem": 1.2, "status": "DISPONÍVEL", "obs": null, "paletes": 1, "carga1": null, "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "QKD3A46", "modelo": "FIORINO", "motorista": "RODRIGO RIBEIRO", "peso": 650.0, "cubagem": 1.0, "status": "DISPONÍVEL", "obs": null, "paletes": 1, "carga1": null, "carga2": null, "carga3": null}, {"filial": "PALMAS", "tipo": "TERCEIRO", "placa": "PZJ0A29", "modelo": "FIORINO", "motorista": "WESLEY SERPA", "peso": 650.0, "cubagem": 1.5, "status": "DISPONÍVEL", "obs": null, "paletes": 1, "carga1": null, "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "PRÓPRIO", "placa": "JBP5D78", "modelo": "3/4", "motorista": "JOSE MACIEL", "peso": 4000.0, "cubagem": 12.8, "status": "EM ROTA", "obs": "AÇAILANDIA", "paletes": 8, "carga1": "AÇAILANDIA", "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "PRÓPRIO", "placa": "JBP5D82", "modelo": "3/4", "motorista": "JAILSON/JOAO VITOR", "peso": 4000.0, "cubagem": 12.8, "status": "EM ROTA", "obs": "GRAJAU", "paletes": 8, "carga1": "GRAJAU", "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "PRÓPRIO", "placa": "JBP5D86", "modelo": "3/4", "motorista": "FLAVIO", "peso": 4000.0, "cubagem": 12.8, "status": "DISPONÍVEL", "obs": "ITZ/AÇAILANDIA", "paletes": 8, "carga1": "ITZ", "carga2": "AÇAILANDIA", "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "PRÓPRIO", "placa": "QKA6D96", "modelo": "3/4", "motorista": null, "peso": 3500.0, "cubagem": 12.8, "status": "DISPONÍVEL", "obs": null, "paletes": 8, "carga1": null, "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "PRÓPRIO", "placa": "QKI2E52", "modelo": "TOCO", "motorista": "LUEDISON/LAZARO", "peso": 7800.0, "cubagem": 18.0, "status": "EM ROTA", "obs": "PARAUAPEBAS", "paletes": 10, "carga1": "PARAUAPEBAS", "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "PRÓPRIO", "placa": "QKK8E91", "modelo": "TOCO", "motorista": null, "peso": 7800.0, "cubagem": 18.0, "status": "DISPONÍVEL", "obs": null, "paletes": 10, "carga1": null, "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "PRÓPRIO", "placa": "RIM5D85", "modelo": "3/4", "motorista": "WELITON", "peso": 4000.0, "cubagem": 12.8, "status": "EM ROTA", "obs": "IMPERATRIZ", "paletes": 8, "carga1": "IMPERATRIZ", "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "PRÓPRIO", "placa": "RIM5D95", "modelo": "3/4", "motorista": "ALMIR", "peso": 4000.0, "cubagem": 12.8, "status": "EM ROTA", "obs": "BALSAS/CAROLINA", "paletes": 8, "carga1": "BALSAS", "carga2": "CAROLINA", "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "PRÓPRIO", "placa": "RIM5E05", "modelo": "3/4", "motorista": "WELBSON", "peso": 4000.0, "cubagem": 12.8, "status": "DISPONÍVEL", "obs": "TOCANTINOPOLIS", "paletes": 8, "carga1": "TOCANTINOPOLIS", "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "PRÓPRIO", "placa": "RIN4E77", "modelo": "3/4", "motorista": "RAIMUNDO", "peso": 4000.0, "cubagem": 12.8, "status": "DISPONÍVEL", "obs": "BALSAS/CAROLINA", "paletes": 8, "carga1": "BALSAS", "carga2": "CAROLINA", "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "PRÓPRIO", "placa": "RIN4E79", "modelo": "3/4", "motorista": "CASSIO", "peso": 4000.0, "cubagem": 12.8, "status": "MANUTENÇÃO", "obs": "IMPERATRIZ", "paletes": 8, "carga1": "IMPERATRIZ", "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "PRÓPRIO", "placa": "RIN4E81", "modelo": "3/4", "motorista": "DIONE", "peso": 4000.0, "cubagem": 12.8, "status": "DISPONÍVEL", "obs": "TOCANTINOPOLIS", "paletes": 8, "carga1": "TOCANTINOPOLIS", "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "PRÓPRIO", "placa": "RKO8D24", "modelo": "3/4", "motorista": "WANDERSON", "peso": 4000.0, "cubagem": 12.8, "status": "DISPONÍVEL", "obs": "IMPERATRIZ", "paletes": 8, "carga1": "IMPERATRIZ", "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "PRÓPRIO", "placa": "RKO8D25", "modelo": "3/4", "motorista": "JUSCIMAR", "peso": 4000.0, "cubagem": 12.8, "status": "EM ROTA", "obs": "MARABA", "paletes": 8, "carga1": "MARABA", "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "PRÓPRIO", "placa": "RKO8D26", "modelo": "3/4", "motorista": "DANIEL", "peso": 4000.0, "cubagem": 12.8, "status": "DISPONÍVEL", "obs": "ITINGA", "paletes": 8, "carga1": "ITINGA", "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "TERCEIRO", "placa": "JJL1C28", "modelo": "3/4", "motorista": "JOAO PAULO", "peso": 4000.0, "cubagem": 12.8, "status": "DISPONÍVEL", "obs": "ESTREITO", "paletes": 8, "carga1": "ESTREITO", "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "TERCEIRO", "placa": "NVO8F94", "modelo": "FIORINO", "motorista": "JOÃO PAULO", "peso": 650.0, "cubagem": 1.5, "status": "DISPONÍVEL", "obs": null, "paletes": null, "carga1": null, "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "TERCEIRO", "placa": "QVF8I47", "modelo": "TOCO", "motorista": "WELISON", "peso": 7800.0, "cubagem": 18.0, "status": "DISPONÍVEL", "obs": "ESTREITO", "paletes": 10, "carga1": "ESTREITO", "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "TERCEIRO", "placa": "ROA4F62", "modelo": "3/4", "motorista": "GABRIEL DIAS", "peso": 4800.0, "cubagem": 12.8, "status": "EM ROTA", "obs": "AUGUSTINOPOLIS", "paletes": 8, "carga1": "AUGUSTINOPOLIS", "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "TERCEIRO", "placa": "SJD6I04", "modelo": "FIORINO", "motorista": "WILSON GONÇALVES", "peso": 650.0, "cubagem": 1.5, "status": "DISPONÍVEL", "obs": null, "paletes": null, "carga1": null, "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "TERCEIRO", "placa": "OLM8D71", "modelo": "3/4", "motorista": "KALEBY", "peso": 4500.0, "cubagem": 12.8, "status": "DISPONÍVEL", "obs": "MARABA", "paletes": 8, "carga1": "MARABA", "carga2": null, "carga3": null}, {"filial": "ARAGUAÍNA", "tipo": "TERCEIRO", "placa": "TVB6I95", "modelo": "-", "motorista": "IGOR", "peso": 4500.0, "cubagem": 12.8, "status": "DISPONÍVEL", "obs": "ESTREITO/GRAJAU", "paletes": 8, "carga1": "ESTREITO", "carga2": "GRAJAU", "carga3": null}];
+/*DATA_END*/
+
+VEHICLES.forEach((v, i) => { if(v.id === undefined) v.id = i + 1; });
+let nextId = Math.max(0, ...VEHICLES.map(v => v.id)) + 1;
+
+/* ---------- Autosave local (localStorage) ---------- */
+/* Guarda as alterações do dia no navegador, para não perder nada ao
+   filtrar, imprimir, atualizar a página ou fechar e reabrir o arquivo. */
+const AUTOSAVE_KEY = "mixFleetVehiclesAutosaveV1";
+const ORIGINAL_VEHICLES = JSON.parse(JSON.stringify(VEHICLES)); // snapshot original do arquivo
+let lastSavedAt = null;
+
+function saveAutosave(){
+  try{
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
+      vehicles: VEHICLES,
+      nextId: nextId,
+      savedAt: Date.now()
+    }));
+    lastSavedAt = Date.now();
+    updateAutosaveLabel();
+  }catch(e){
+    console.warn("Não foi possível salvar automaticamente:", e);
+  }
+}
+
+function loadAutosave(){
+  let raw;
+  try{ raw = localStorage.getItem(AUTOSAVE_KEY); }catch(e){ return false; }
+  if(!raw) return false;
+  let saved;
+  try{ saved = JSON.parse(raw); }catch(e){ return false; }
+  if(!saved || !Array.isArray(saved.vehicles)) return false;
+  VEHICLES = saved.vehicles;
+  nextId = saved.nextId || (Math.max(0, ...VEHICLES.map(v => v.id)) + 1);
+  lastSavedAt = saved.savedAt || null;
+  return true;
+}
+
+function updateAutosaveLabel(){
+  const el = document.getElementById('autosaveStatus');
+  if(!el) return;
+  if(!lastSavedAt){ el.textContent = "Nenhuma alteração local salva ainda"; return; }
+  const d = new Date(lastSavedAt);
+  const h = String(d.getHours()).padStart(2,'0');
+  const m = String(d.getMinutes()).padStart(2,'0');
+  el.textContent = `Proteção temporária deste navegador atualizada às ${h}:${m} — clique em "Baixar painel atualizado" para salvar de verdade`;
+}
+
+let editsSinceLastDownload = 0;
+function trackEditForReminder(){
+  editsSinceLastDownload++;
+  if(editsSinceLastDownload === 1 || editsSinceLastDownload % 8 === 0){
+    showToast('Alteração feita — clique em "💾 Baixar painel atualizado" pra não correr risco de perder');
+  }
+}
+
+const restoredFromAutosave = loadAutosave();
+
+let state = { status: new Set(), filial: null, tipo: null, search: "", sortKey: null, sortDir: 1 };
+
+const statusMeta = {
+  "DISPONÍVEL": {cls:"DISPONÍVEL", label:"Disponível"},
+  "EM ROTA": {cls:"EMROTA", label:"Em rota"},
+  "ESCALADO": {cls:"ESCALADO", label:"Escalado"},
+  "MANUTENÇÃO": {cls:"MANUTENÇÃO", label:"Manutenção"},
+  "DEIXAR DE FORA": {cls:"DEIXARDEFORA", label:"Deixar de fora"},
+  "AVALIAR RETORNO": {cls:"AVALIARRETORNO", label:"Avaliar retorno"},
+};
+const filialOptions = ["PALMAS", "ARAGUAÍNA"];
+const tipoOptions = ["PRÓPRIO", "TERCEIRO"];
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._h);
+  showToast._h = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+function activeFilterLabel(){
+  const parts = [];
+  if(state.status.size > 0){
+    parts.push([...state.status].map(s => (statusMeta[s]?.label || s)).join(' + '));
+  }
+  if(state.filial) parts.push(state.filial);
+  if(state.tipo) parts.push(state.tipo);
+  if(state.search) parts.push(`busca "${state.search}"`);
+  return parts.length ? parts.join(' · ') : 'todos os veículos (sem filtro)';
+}
+
+function updatePrintSummary(){
+  const el = document.getElementById('printSummary');
+  const rows = getVisibleRows();
+  const filiaisAtuais = [...new Set(rows.map(v => v.filial))];
+  const totalPeso = rows.reduce((s,v) => s + (v.peso || 0), 0);
+  const totalCubagem = rows.reduce((s,v) => s + (v.cubagem || 0), 0);
+
+  const boxes = filiaisAtuais.map(f => {
+    const doFilial = rows.filter(v => v.filial === f);
+    const peso = doFilial.reduce((s,v) => s + (v.peso || 0), 0);
+    const cubagem = doFilial.reduce((s,v) => s + (v.cubagem || 0), 0);
+    return `<div class="box">
+      <div class="city">${f}</div>
+      <div class="kg">${peso.toLocaleString('pt-BR')} kg · ${cubagem.toLocaleString('pt-BR')} m³</div>
+      <div class="qtd">${doFilial.length} veículo(s)</div>
+    </div>`;
+  }).join('');
+
+  const totalBox = `<div class="box">
+      <div class="city">Total filtrado</div>
+      <div class="kg">${totalPeso.toLocaleString('pt-BR')} kg · ${totalCubagem.toLocaleString('pt-BR')} m³</div>
+      <div class="qtd">${rows.length} veículo(s) · ${activeFilterLabel()}</div>
+    </div>`;
+
+  el.innerHTML = boxes + totalBox;
+}
+
+function buildSummary(){
+  updatePrintSummary();
+  const el = document.getElementById('summary');
+  const total = VEHICLES.length;
+  const counts = {};
+  const pesos = {};
+  const cubagens = {};
+  VEHICLES.forEach(v => {
+    counts[v.status] = (counts[v.status]||0)+1;
+    pesos[v.status] = (pesos[v.status]||0) + (v.peso || 0);
+    cubagens[v.status] = (cubagens[v.status]||0) + (v.cubagem || 0);
+  });
+  const totalPeso = VEHICLES.reduce((s,v) => s + (v.peso || 0), 0);
+  const totalCubagem = VEHICLES.reduce((s,v) => s + (v.cubagem || 0), 0);
+  const cards = [
+    {key:null, cls:'total', n: total, l:'Frota total', peso: totalPeso, cubagem: totalCubagem},
+    {key:'DISPONÍVEL', cls:'disp', n: counts['DISPONÍVEL']||0, l:'Disponível', peso: pesos['DISPONÍVEL']||0, cubagem: cubagens['DISPONÍVEL']||0},
+    {key:'EM ROTA', cls:'rota', n: counts['EM ROTA']||0, l:'Em rota', peso: pesos['EM ROTA']||0, cubagem: cubagens['EM ROTA']||0},
+    {key:'ESCALADO', cls:'escalado', n: counts['ESCALADO']||0, l:'Escalado', peso: pesos['ESCALADO']||0, cubagem: cubagens['ESCALADO']||0},
+    {key:'MANUTENÇÃO', cls:'manut', n: counts['MANUTENÇÃO']||0, l:'Manutenção', peso: pesos['MANUTENÇÃO']||0, cubagem: cubagens['MANUTENÇÃO']||0},
+    {key:'DEIXAR DE FORA', cls:'fora', n: counts['DEIXAR DE FORA']||0, l:'Deixar de fora', peso: pesos['DEIXAR DE FORA']||0, cubagem: cubagens['DEIXAR DE FORA']||0},
+    {key:'AVALIAR RETORNO', cls:'retorno', n: counts['AVALIAR RETORNO']||0, l:'Avaliar retorno', peso: pesos['AVALIAR RETORNO']||0, cubagem: cubagens['AVALIAR RETORNO']||0},
+  ];
+  el.innerHTML = cards.map(c => `
+    <div class="card ${c.cls}" data-status="${c.key ?? ''}">
+      <div class="n">${c.n}</div>
+      <div class="l">${c.l}</div>
+      <div class="peso">${c.peso.toLocaleString('pt-BR', {maximumFractionDigits:2})} kg · ${c.cubagem.toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:2})} m³</div>
+    </div>`).join('');
+  el.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', () => {
+      const s = card.dataset.status || null;
+      if(!s) { state.status.clear(); }
+      else if(state.status.has(s)) { state.status.delete(s); }
+      else { state.status.add(s); }
+      renderAll();
+    });
+  });
+}
+
+function buildStatusGroup(){
+  const el = document.getElementById('statusGroup');
+  el.innerHTML = Object.keys(statusMeta).map(s => {
+    const meta = statusMeta[s];
+    return `<button class="btn st-${meta.cls}" data-v="${s}">${meta.label}</button>`;
+  }).join('');
+  el.querySelectorAll('.btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const s = btn.dataset.v;
+      if(state.status.has(s)) state.status.delete(s); else state.status.add(s);
+      renderAll();
+    });
+  });
+}
+
+function buildFilterGroup(containerId, values, stateKey, allLabel){
+  const el = document.getElementById(containerId);
+  const opts = [{v:null, l:allLabel}].concat(values.map(v => ({v, l:v})));
+  el.innerHTML = opts.map(o => `<button class="btn" data-v="${o.v ?? ''}">${o.l}</button>`).join('');
+  el.querySelectorAll('.btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.v || null;
+      state[stateKey] = (state[stateKey] === v) ? null : v;
+      renderAll();
+    });
+  });
+}
+
+function syncControls(){
+  document.querySelectorAll('.card').forEach(c => {
+    const s = c.dataset.status || null;
+    c.classList.toggle('active', s ? state.status.has(s) : state.status.size === 0);
+  });
+  document.querySelectorAll('#statusGroup .btn').forEach(b => b.classList.toggle('on', state.status.has(b.dataset.v)));
+  document.querySelectorAll('#filialGroup .btn').forEach(b => b.classList.toggle('on', (b.dataset.v||null) === state.filial));
+  document.querySelectorAll('#tipoGroup .btn').forEach(b => b.classList.toggle('on', (b.dataset.v||null) === state.tipo));
+}
+
+function getVisibleRows(){
+  let rows = VEHICLES.filter(v => {
+    if(state.status.size > 0 && !state.status.has(v.status)) return false;
+    if(state.filial && v.filial !== state.filial) return false;
+    if(state.tipo && v.tipo !== state.tipo) return false;
+    if(state.search){
+      const s = state.search.toLowerCase();
+      const hay = [v.placa, v.motorista, v.obs, v.modelo, v.carga1, v.carga2, v.carga3].filter(Boolean).join(' ').toLowerCase();
+      if(!hay.includes(s)) return false;
+    }
+    return true;
+  });
+  if(state.sortKey){
+    rows = rows.slice().sort((a,b) => {
+      let av = a[state.sortKey], bv = b[state.sortKey];
+      if(av === null || av === undefined) av = '';
+      if(bv === null || bv === undefined) bv = '';
+      if(typeof av === 'number' && typeof bv === 'number') return (av-bv)*state.sortDir;
+      return String(av).localeCompare(String(bv), 'pt-BR') * state.sortDir;
+    });
+  }
+  return rows;
+}
+
+function optionsHTML(list, current){
+  return list.map(o => `<option value="${o}" ${o===current?'selected':''}>${o}</option>`).join('');
+}
+
+function renderTable(){
+  updatePrintSummary();
+  const rows = getVisibleRows();
+  const tbody = document.getElementById('tbody');
+  if(rows.length === 0){
+    tbody.innerHTML = `<tr><td colspan="13"><div class="empty">Nenhum veículo encontrado com esses filtros.</div></td></tr>`;
+  } else {
+    tbody.innerHTML = rows.map(v => {
+      const meta = statusMeta[v.status] || {cls:'', label:v.status};
+      return `<tr data-id="${v.id}">
+        <td><select class="cell-select" data-field="filial" style="min-width:118px">${optionsHTML(filialOptions, v.filial)}</select></td>
+        <td><input class="cell-input placa-input" data-field="placa" value="${v.placa ?? ''}"></td>
+        <td><input class="cell-input" data-field="modelo" value="${v.modelo ?? ''}" style="width:95px"></td>
+        <td><select class="cell-select" data-field="tipo" style="min-width:100px">${optionsHTML(tipoOptions, v.tipo)}</select></td>
+        <td><input class="cell-input" data-field="motorista" value="${v.motorista ?? ''}" placeholder="sem motorista" style="min-width:140px"></td>
+        <td><input class="cell-input num" type="number" data-field="peso" value="${v.peso ?? ''}"></td>
+        <td><input class="cell-input num" type="number" step="0.1" data-field="cubagem" value="${v.cubagem ?? ''}"></td>
+        <td><select class="cell-select status-${meta.cls}" data-field="status" style="min-width:140px">${optionsHTML(Object.keys(statusMeta), v.status)}</select></td>
+        <td><input class="cell-input" data-field="obs" value="${v.obs ?? ''}" placeholder="—" style="min-width:160px"></td>
+        <td><input class="cell-input" data-field="carga1" value="${v.carga1 ?? ''}" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga2" value="${v.carga2 ?? ''}" placeholder="—" style="min-width:110px"></td>
+        <td><input class="cell-input" data-field="carga3" value="${v.carga3 ?? ''}" placeholder="—" style="min-width:110px"></td>
+        <td><button class="del-btn" title="Remover veículo">✕</button></td>
+      </tr>`;
+    }).join('');
+  }
+  const pesoExibido = rows.reduce((s,v)=>s+(v.peso||0),0);
+  const cubagemExibida = rows.reduce((s,v)=>s+(v.cubagem||0),0);
+  document.getElementById('footerCount').textContent = `${rows.length} de ${VEHICLES.length} veículos exibidos · ${pesoExibido.toLocaleString('pt-BR', {maximumFractionDigits:2})} kg · ${cubagemExibida.toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:2})} m³`;
+  attachRowHandlers();
+}
+
+function attachRowHandlers(){
+  document.querySelectorAll('#tbody tr[data-id]').forEach(tr => {
+    const id = Number(tr.dataset.id);
+    const vehicle = VEHICLES.find(v => v.id === id);
+    if(!vehicle) return;
+
+    tr.querySelectorAll('input[data-field]').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const f = inp.dataset.field;
+        let val = inp.value.trim();
+        if(f === 'peso' || f === 'cubagem'){
+          vehicle[f] = val === '' ? null : parseFloat(val.replace(',', '.'));
+        } else {
+          vehicle[f] = val === '' ? null : val.toUpperCase();
+        }
+        buildSummary();
+        renderTable();
+        syncControls();
+        saveAutosave(); trackEditForReminder();
+      });
+    });
+
+    tr.querySelectorAll('select[data-field]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        vehicle[sel.dataset.field] = sel.value;
+        buildSummary();
+        renderTable();
+        syncControls();
+        saveAutosave(); trackEditForReminder();
+      });
+    });
+
+    tr.querySelector('.del-btn').addEventListener('click', () => {
+      const idx = VEHICLES.findIndex(v => v.id === id);
+      if(idx > -1){
+        VEHICLES.splice(idx, 1);
+        buildSummary();
+        renderTable();
+        syncControls();
+        saveAutosave(); trackEditForReminder();
+        showToast('Veículo removido');
+      }
+    });
+  });
+}
+
+function renderAll(){
+  syncControls();
+  renderTable();
+}
+
+document.getElementById('searchBox').addEventListener('input', e => {
+  state.search = e.target.value.trim();
+  renderTable();
+});
+
+document.querySelectorAll('thead th[data-k]').forEach(th => {
+  th.addEventListener('click', () => {
+    const k = th.dataset.k;
+    if(state.sortKey === k) state.sortDir *= -1; else { state.sortKey = k; state.sortDir = 1; }
+    renderTable();
+  });
+});
+
+document.getElementById('addBtn').addEventListener('click', () => {
+  VEHICLES.push({
+    id: nextId++,
+    filial: state.filial || "PALMAS",
+    tipo: "PRÓPRIO",
+    placa: "",
+    modelo: "",
+    motorista: "",
+    peso: null,
+    cubagem: null,
+    status: "DISPONÍVEL",
+    obs: null,
+    carga1: null,
+    carga2: null,
+    carga3: null,
+    paletes: null
+  });
+  buildSummary();
+  renderTable();
+  syncControls();
+  saveAutosave(); trackEditForReminder();
+  const lastRow = document.querySelector('#tbody tr:last-child input[data-field="placa"]');
+  if(lastRow) lastRow.focus();
+  showToast('Veículo adicionado — preencha os campos');
+});
+
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const rows = getVisibleRows();
+  if(rows.length === 0){
+    showToast('Nenhum veículo para exportar com esses filtros');
+    return;
+  }
+  const headers = ["Filial","Placa","Modelo","Tipo","Motorista","Peso (kg)","Cubagem (m³)","Status","Rota / Obs.","Carga 1","Carga 2","Carga 3"];
+  const data = rows.map(v => [
+    v.filial, v.placa, v.modelo, v.tipo, v.motorista || '', v.peso ?? '', v.cubagem ?? '',
+    v.status, v.obs || '', v.carga1 || '', v.carga2 || '', v.carga3 || ''
+  ]);
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+  ws['!cols'] = [
+    {wch:12},{wch:11},{wch:12},{wch:11},{wch:20},{wch:10},{wch:12},{wch:14},{wch:18},{wch:14},{wch:14},{wch:14}
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Disponibilidade");
+  const now = new Date();
+  const stamp = `${String(now.getDate()).padStart(2,'0')}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  XLSX.writeFile(wb, `disponibilidade_frota_${stamp}.xlsx`);
+  showToast(`Excel exportado (${rows.length} veículos)`);
+});
+
+document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  if(!confirm('Isso vai apagar as alterações salvas neste navegador e voltar aos dados originais do arquivo. Deseja continuar?')) return;
+  try{ localStorage.removeItem(AUTOSAVE_KEY); }catch(e){}
+  VEHICLES = JSON.parse(JSON.stringify(ORIGINAL_VEHICLES));
+  nextId = Math.max(0, ...VEHICLES.map(v => v.id)) + 1;
+  lastSavedAt = null;
+  buildSummary();
+  renderTable();
+  syncControls();
+  updateAutosaveLabel();
+  showToast('Dados originais restaurados');
+});
+
+document.getElementById('saveBtn').addEventListener('click', () => {
+  const fullHtml = document.documentElement.outerHTML;
+  const newData = JSON.stringify(VEHICLES);
+  const updated = fullHtml.replace(
+    /\/\*DATA_START\*\/[\s\S]*?\/\*DATA_END\*\//,
+    `/*DATA_START*/\nlet VEHICLES = ${newData};\n/*DATA_END*/`
+  );
+  const blob = new Blob(['<!DOCTYPE html>\n' + updated], {type: 'text/html'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const now = new Date();
+  const stamp = `${String(now.getDate()).padStart(2,'0')}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  a.href = url;
+  a.download = `disponibilidade_frota_${stamp}.html`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('Painel baixado com as alterações de hoje');
+  editsSinceLastDownload = 0;
+});
+
+buildStatusGroup();
+buildFilterGroup('filialGroup', filialOptions, 'filial', 'Todas as filiais');
+buildFilterGroup('tipoGroup', tipoOptions, 'tipo', 'Próprio + Terceiro');
+buildSummary();
+renderAll();
+updateAutosaveLabel();
+if(restoredFromAutosave){
+  showToast('Alterações salvas anteriormente neste navegador foram restauradas');
+}
+
+function updateClock(){
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('clockTime').textContent = `${h}:${m}`;
+}
+updateClock();
+setInterval(updateClock, 30000);
+initFourTabGoogleSheets();
+</script>
+
+
+</body></html>
